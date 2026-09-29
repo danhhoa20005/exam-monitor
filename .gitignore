@@ -48,3 +48,5 @@ htmlcov/
 # Heavy weights & tasks (User copies separately)
 backend/models/best.pt
 backend/models/*.task
+*.zip
+model/

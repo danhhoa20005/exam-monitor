@@ -11,7 +11,7 @@ export type TrackStatus =
 
 export interface TrackResult {
   track_id: number;
-  bbox_xyxy_norm: [number, number, number, number]; // [x1, y1, x2, y2] in 0.0 to 1.0
+  bbox_xyxy_norm: [number, number, number, number]; // [x1, y1, x2, y2] normalized (0.0 to 1.0)
   detection_confidence?: number;
   pose_valid: boolean;
   calibration_samples: number; // 0 to 20
@@ -31,7 +31,7 @@ export interface MonitoringResult {
   processing_ms?: number;
   frame_size: [number, number];
   tracks: TrackResult[];
-  new_event_ids: string[];
+  new_event_ids?: string[];
 }
 
 export type EventReviewStatus = 'PENDING' | 'NEEDS_REVIEW' | 'CONFIRMED' | 'DISMISSED';
@@ -58,3 +58,13 @@ export type SocketConnectionState =
   | 'error';
 
 export type CameraFacingMode = 'user' | 'environment';
+
+export interface ModelConnectionConfig {
+  wsUrl: string;
+  sessionId: string;
+  targetFps: number;
+  jpegQuality: number;
+  targetWidth: number;
+  targetHeight: number;
+  authTicket: string;
+}

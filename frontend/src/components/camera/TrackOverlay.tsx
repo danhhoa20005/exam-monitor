@@ -21,7 +21,7 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Support sharp HiDPI Retina displays
+    // Support sharp HiDPI Retina displays on iPhone, iPad, and high-DPI screens
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     canvas.width = rect.width * dpr;
@@ -62,13 +62,14 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
 
     const isMirrored = facingMode === 'user';
 
-    // Draw bounding boxes
+    // Draw bounding boxes & telemetry tags
     tracks.forEach(track => {
       const [x1Norm, y1Norm, x2Norm, y2Norm] = track.bbox_xyxy_norm;
 
       let leftNorm = x1Norm;
       let rightNorm = x2Norm;
 
+      // Symmetric coordinate inversion for front camera mirroring
       if (isMirrored) {
         leftNorm = 1.0 - x2Norm;
         rightNorm = 1.0 - x1Norm;
@@ -76,8 +77,8 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
 
       const x = offsetX + leftNorm * renderedW;
       const y = offsetY + y1Norm * renderedH;
-      const w = (rightNorm - leftNorm) * renderedW;
-      const h = (y2Norm - y1Norm) * renderedH;
+      const w = Math.max(10, (rightNorm - leftNorm) * renderedW);
+      const h = Math.max(10, (y2Norm - y1Norm) * renderedH);
 
       const style = STATUS_STYLES[track.status] || STATUS_STYLES.POSE_UNAVAILABLE;
       const isReview = track.status === 'REVIEW';
@@ -109,22 +110,40 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
       const headerText = `ID ${track.track_id < 10 ? '0' : ''}${track.track_id} • ${statusText}`;
 
       // Measure text width
-      ctx.font = '600 12px Inter, sans-serif';
+      ctx.font = '600 11px Inter, system-ui, sans-serif';
       const textMetrics = ctx.measureText(headerText);
       const tagH = 22;
       const tagW = Math.max(w, textMetrics.width + 16);
       const tagY = Math.max(4, y - tagH);
 
       // 3. Draw Header Pill Tag
-      ctx.fillStyle = isReview ? '#dc2626' : 'rgba(15, 23, 42, 0.88)';
+      ctx.fillStyle = isReview ? '#dc2626' : 'rgba(15, 23, 42, 0.92)';
       ctx.beginPath();
-      ctx.roundRect(x, tagY, tagW, tagH, [4, 4, 0, 0]);
+      ctx.roundRect(x, tagY, tagW, tagH, [5, 5, 0, 0]);
       ctx.fill();
 
       // Tag Text
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'left';
       ctx.fillText(headerText, x + 8, tagY + 15);
+
+      // 4. Bottom Telemetry Bar (for calibrated candidates)
+      if (track.status !== 'CALIBRATING' && track.status !== 'POSE_UNAVAILABLE') {
+        const botH = 18;
+        const botY = y + h + 2;
+        if (botY + botH <= containerH) {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+          ctx.beginPath();
+          ctx.roundRect(x, botY, Math.max(w, 136), botH, [0, 0, 4, 4]);
+          ctx.fill();
+
+          ctx.font = '600 10px JetBrains Mono, monospace';
+          ctx.fillStyle = style.color;
+          const yawSign = (track.yaw_delta_deg || 0) > 0 ? '+' : '';
+          const line = `ΔYaw: ${yawSign}${track.yaw_delta_deg || 0}° | Hạ: ${((track.nose_drop_ratio || 0) * 100).toFixed(0)}%`;
+          ctx.fillText(line, x + 6, botY + 13);
+        }
+      }
     });
 
   }, [tracks, videoDimensions, facingMode]);

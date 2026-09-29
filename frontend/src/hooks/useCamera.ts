@@ -6,6 +6,12 @@ export interface CameraError {
   message: string;
 }
 
+export interface VideoDevice {
+  deviceId: string;
+  label: string;
+  facing: CameraFacingMode;
+}
+
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -13,8 +19,61 @@ export function useCamera() {
 
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [facingMode, setFacingMode] = useState<CameraFacingMode>('environment');
+  const [activeDeviceId, setActiveDeviceId] = useState<string>('');
+  const [activeCameraLabel, setActiveCameraLabel] = useState<string>('Camera Sau');
+  const [availableDevices, setAvailableDevices] = useState<VideoDevice[]>([]);
   const [error, setError] = useState<CameraError | null>(null);
   const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+
+  // Enumerate all video input devices and detect facing direction
+  const refreshDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      
+      const parsed: VideoDevice[] = videoInputs.map((d, index) => {
+        const labelLower = d.label.toLowerCase();
+        let facing: CameraFacingMode = 'environment';
+        
+        if (
+          labelLower.includes('front') || 
+          labelLower.includes('user') || 
+          labelLower.includes('trước') || 
+          labelLower.includes('facetime') ||
+          labelLower.includes('selfie')
+        ) {
+          facing = 'user';
+        } else if (
+          labelLower.includes('back') || 
+          labelLower.includes('rear') || 
+          labelLower.includes('sau') || 
+          labelLower.includes('environment') ||
+          labelLower.includes('chính')
+        ) {
+          facing = 'environment';
+        } else {
+          // If ambiguous, first device is often environment/webcam
+          facing = index === 0 ? 'environment' : 'user';
+        }
+
+        const fallbackLabel = facing === 'environment' 
+          ? `Camera Sau ${index > 0 ? `#${index + 1}` : ''}` 
+          : `Camera Trước ${index > 0 ? `#${index + 1}` : ''}`;
+        const cleanLabel = d.label ? d.label : fallbackLabel;
+
+        return {
+          deviceId: d.deviceId,
+          label: cleanLabel,
+          facing
+        };
+      });
+
+      setAvailableDevices(parsed);
+    } catch (err) {
+      console.warn('Không thể liệt kê thiết bị camera:', err);
+    }
+  }, []);
 
   // Stop all active media tracks completely
   const stopCamera = useCallback(() => {
@@ -28,10 +87,11 @@ export function useCamera() {
       videoRef.current.srcObject = null;
     }
     setIsStreaming(false);
+    setVideoDimensions({ width: 0, height: 0 });
   }, []);
 
-  // Start Camera with specified facing mode
-  const startCamera = useCallback(async (modeToUse?: CameraFacingMode) => {
+  // Start Camera with specified facing mode or specific deviceId
+  const startCamera = useCallback(async (modeToUse?: CameraFacingMode, specificDeviceId?: string) => {
     setError(null);
     const targetMode = modeToUse || facingMode;
 
@@ -39,13 +99,13 @@ export function useCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       const err: CameraError = {
         type: 'NOT_SUPPORTED',
-        message: 'Trình duyệt hiện tại không hỗ trợ truy cập Camera (getUserMedia).'
+        message: 'Trình duyệt hiện tại không hỗ trợ truy cập Camera (getUserMedia). Vui lòng dùng Chrome hoặc Safari mới nhất.'
       };
       setError(err);
       return false;
     }
 
-    // Stop existing stream if any before acquiring a new one
+    // Stop existing stream before acquiring a new one
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -53,24 +113,59 @@ export function useCamera() {
 
     try {
       let stream: MediaStream;
-      try {
-        // First try with preferred facingMode
-        const constraints: MediaStreamConstraints = {
+
+      if (specificDeviceId) {
+        // Exact device constraint
+        stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: targetMode },
+            deviceId: { exact: specificDeviceId },
             width: { ideal: 1280 },
             height: { ideal: 720 }
           },
           audio: false
-        };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (firstErr: unknown) {
-        // If preferred facingMode (e.g. environment) failed, fallback to any available video camera
-        console.warn('Fallback to basic video constraint:', firstErr);
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        });
+      } else {
+        try {
+          // Preferred facingMode constraint (environment = rear camera priority)
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: targetMode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+        } catch (firstErr: unknown) {
+          // Fallback to basic constraint if exact facing mode fails
+          console.warn('Fallback to basic video constraint:', firstErr);
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
       }
 
       streamRef.current = stream;
+
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const trackSettings = videoTrack.getSettings();
+        let detectedFacing = (trackSettings.facingMode as CameraFacingMode) || targetMode;
+        
+        // Fallback detection from track label if facingMode is not provided in settings
+        const labelLower = (videoTrack.label || '').toLowerCase();
+        if (labelLower.includes('front') || labelLower.includes('user') || labelLower.includes('trước') || labelLower.includes('facetime')) {
+          detectedFacing = 'user';
+        } else if (labelLower.includes('back') || labelLower.includes('rear') || labelLower.includes('sau') || labelLower.includes('environment')) {
+          detectedFacing = 'environment';
+        }
+
+        setFacingMode(detectedFacing);
+        setActiveDeviceId(trackSettings.deviceId || '');
+        
+        const friendlyLabel = videoTrack.label 
+          ? `${detectedFacing === 'environment' ? 'Camera Sau' : 'Camera Trước'} (${videoTrack.label})`
+          : (detectedFacing === 'environment' ? 'Camera Sau (Mặc định)' : 'Camera Trước (Selfie)');
+        
+        setActiveCameraLabel(friendlyLabel);
+      }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -84,8 +179,8 @@ export function useCamera() {
           videoRef.current.onloadedmetadata = () => {
             if (videoRef.current) {
               setVideoDimensions({
-                width: videoRef.current.videoWidth,
-                height: videoRef.current.videoHeight
+                width: videoRef.current.videoWidth || 1280,
+                height: videoRef.current.videoHeight || 720
               });
             }
             resolve();
@@ -95,8 +190,8 @@ export function useCamera() {
         await videoRef.current.play();
       }
 
-      setFacingMode(targetMode);
       setIsStreaming(true);
+      await refreshDevices();
       return true;
 
     } catch (err: unknown) {
@@ -106,22 +201,22 @@ export function useCamera() {
       if (errorObj.name === 'NotAllowedError' || errorObj.name === 'PermissionDeniedError') {
         camError = {
           type: 'PERMISSION_DENIED',
-          message: 'Bạn đã từ chối quyền truy cập camera. Vui lòng cho phép quyền camera trong cài đặt trình duyệt để tiếp tục.'
+          message: 'Bạn đã từ chối quyền camera. Vui lòng cho phép quyền truy cập camera trong cài đặt trình duyệt để hệ thống hoạt động.'
         };
       } else if (errorObj.name === 'NotFoundError' || errorObj.name === 'DevicesNotFoundError') {
         camError = {
           type: 'NOT_FOUND',
-          message: 'Không tìm thấy thiết bị camera trên máy của bạn.'
+          message: 'Không tìm thấy thiết bị camera trên thiết bị của bạn.'
         };
       } else if (errorObj.name === 'NotReadableError' || errorObj.name === 'TrackStartError') {
         camError = {
           type: 'IN_USE',
-          message: 'Camera đang bị ứng dụng khác sử dụng hoặc bị khóa bởi hệ thống.'
+          message: 'Camera đang bị ứng dụng khác chiếm dụng hoặc bị khóa bởi hệ điều hành.'
         };
       } else {
         camError = {
           type: 'UNKNOWN',
-          message: errorObj.message || 'Lỗi không xác định khi mở camera.'
+          message: errorObj.message || 'Lỗi không xác định khi kích hoạt camera.'
         };
       }
 
@@ -129,17 +224,27 @@ export function useCamera() {
       setIsStreaming(false);
       return false;
     }
-  }, [facingMode]);
+  }, [facingMode, refreshDevices]);
 
   // Toggle Front / Back Camera
   const toggleCamera = useCallback(async () => {
-    if (!isStreaming) return;
     const nextMode: CameraFacingMode = facingMode === 'environment' ? 'user' : 'environment';
     await startCamera(nextMode);
-  }, [isStreaming, facingMode, startCamera]);
+  }, [facingMode, startCamera]);
 
-  // Capture single frame to Base64 JPEG (640x480 or current aspect ratio, quality 0.75)
-  const captureFrame = useCallback((targetWidth: number = 640, targetHeight: number = 480): { base64: string; width: number; height: number } | null => {
+  // Switch to specific device ID from dropdown
+  const selectDevice = useCallback(async (deviceId: string) => {
+    const dev = availableDevices.find(d => d.deviceId === deviceId);
+    const mode = dev ? dev.facing : facingMode;
+    await startCamera(mode, deviceId);
+  }, [availableDevices, facingMode, startCamera]);
+
+  // Capture single frame to Base64 JPEG with customizable resolution and quality
+  const captureFrame = useCallback((
+    targetWidth: number = 640, 
+    targetHeight: number = 480, 
+    quality: number = 0.75
+  ): { base64: string; width: number; height: number; facingMode: CameraFacingMode } | null => {
     const video = videoRef.current;
     if (!video || !isStreaming || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
       return null;
@@ -156,11 +261,16 @@ export function useCamera() {
     if (!ctx) return null;
 
     ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
     const base64 = dataUrl.split(',')[1] || '';
 
-    return { base64, width: targetWidth, height: targetHeight };
-  }, [isStreaming]);
+    return { 
+      base64, 
+      width: targetWidth, 
+      height: targetHeight,
+      facingMode 
+    };
+  }, [isStreaming, facingMode]);
 
   // Clean up on component unmount
   useEffect(() => {
@@ -173,11 +283,17 @@ export function useCamera() {
     videoRef,
     isStreaming,
     facingMode,
+    isFrontCamera: facingMode === 'user',
+    isBackCamera: facingMode === 'environment',
+    activeDeviceId,
+    activeCameraLabel,
+    availableDevices,
     error,
     videoDimensions,
     startCamera,
     stopCamera,
     toggleCamera,
+    selectDevice,
     captureFrame
   };
 }

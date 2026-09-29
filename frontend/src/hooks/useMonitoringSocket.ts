@@ -4,7 +4,8 @@ import {
   MonitoringEvent, 
   SocketConnectionState, 
   EventReviewStatus,
-  MonitoringResult
+  ModelConnectionConfig,
+  CameraFacingMode
 } from '../types/monitoring';
 import { 
   USE_MOCK_DATA, 
@@ -12,14 +13,32 @@ import {
   INITIAL_MOCK_TRACKS, 
   INITIAL_MOCK_EVENTS 
 } from '../constants/config';
+import { 
+  ClientAuthMessage, 
+  ClientFrameMessage, 
+  ServerMessage 
+} from '../types/protocol';
+
+export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
+  wsUrl: API_BASE_URL 
+    ? (API_BASE_URL.replace(/^http/, 'ws') + '/ws/sessions/session-01')
+    : 'ws://127.0.0.1:8000/ws/sessions/session-01',
+  sessionId: 'session-local-01',
+  targetFps: 5,
+  jpegQuality: 0.75,
+  targetWidth: 640,
+  targetHeight: 480,
+  authTicket: 'demo-ticket-2026'
+};
 
 export function useMonitoringSocket(isSessionActive: boolean) {
+  const [isMockEnabled, setIsMockEnabled] = useState<boolean>(USE_MOCK_DATA);
   const [connectionState, setConnectionState] = useState<SocketConnectionState>('disconnected');
   const [tracks, setTracks] = useState<TrackResult[]>([]);
   const [events, setEvents] = useState<MonitoringEvent[]>([]);
   const [fps, setFps] = useState<number>(0);
   const [latencyMs, setLatencyMs] = useState<number>(0);
-  const [sessionId, setSessionId] = useState<string>('session-local-01');
+  const [modelConfig, setModelConfig] = useState<ModelConnectionConfig>(DEFAULT_MODEL_CONFIG);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -27,7 +46,22 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   const fpsTimestampsRef = useRef<number[]>([]);
   const mockIntervalRef = useRef<number | null>(null);
 
-  // Update FPS calculation
+  // Toggle between Mock and Live WebSocket mode
+  const toggleMockMode = useCallback(() => {
+    setIsMockEnabled(prev => !prev);
+  }, []);
+
+  // Set mock mode explicitly
+  const setMockMode = useCallback((enabled: boolean) => {
+    setIsMockEnabled(enabled);
+  }, []);
+
+  // Update AI Model Connection Configuration
+  const updateModelConfig = useCallback((newConfig: Partial<ModelConnectionConfig>) => {
+    setModelConfig(prev => ({ ...prev, ...newConfig }));
+  }, []);
+
+  // Record FPS and Latency
   const recordFrameTelemetry = useCallback((processingMs: number = 0) => {
     const now = performance.now();
     fpsTimestampsRef.current.push(now);
@@ -43,10 +77,10 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   }, []);
 
   // -------------------------------------------------------------
-  // 1. MOCK DATA ENGINE (When USE_MOCK_DATA === true)
+  // 1. MOCK DATA ENGINE (When isMockEnabled === true)
   // -------------------------------------------------------------
   useEffect(() => {
-    if (!USE_MOCK_DATA) return;
+    if (!isMockEnabled) return;
 
     if (!isSessionActive) {
       setConnectionState('disconnected');
@@ -67,9 +101,9 @@ export function useMonitoringSocket(isSessionActive: boolean) {
     let mockTick = 0;
     mockIntervalRef.current = window.setInterval(() => {
       mockTick += 1;
-      recordFrameTelemetry(32 + Math.floor(Math.sin(mockTick) * 8));
+      recordFrameTelemetry(28 + Math.floor(Math.sin(mockTick * 0.2) * 6));
 
-      // Slightly animate mock candidates
+      // Dynamic animation for 5 mock candidates per specification
       setTracks(prev => {
         if (prev.length === 0) return INITIAL_MOCK_TRACKS;
         return prev.map(t => {
@@ -86,7 +120,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
             // Observing slight yaw fluctuation
             return {
               ...t,
-              yaw_delta_deg: Number((38.0 + Math.sin(mockTick * 0.5) * 4).toFixed(1)),
+              yaw_delta_deg: Number((38.0 + Math.sin(mockTick * 0.5) * 3).toFixed(1)),
               turning_duration_ms: (t.turning_duration_ms || 800) + 200
             };
           }
@@ -94,7 +128,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
             // Review state persistent
             return {
               ...t,
-              yaw_delta_deg: Number((44.0 + Math.cos(mockTick * 0.3) * 3).toFixed(1)),
+              yaw_delta_deg: Number((44.0 + Math.cos(mockTick * 0.3) * 2).toFixed(1)),
               turning_duration_ms: (t.turning_duration_ms || 1700) + 200
             };
           }
@@ -108,56 +142,53 @@ export function useMonitoringSocket(isSessionActive: boolean) {
         clearInterval(mockIntervalRef.current);
       }
     };
-  }, [isSessionActive, recordFrameTelemetry]);
+  }, [isMockEnabled, isSessionActive, recordFrameTelemetry]);
 
   // -------------------------------------------------------------
-  // 2. REAL WEBSOCKET CLIENT (When USE_MOCK_DATA === false)
+  // 2. REAL WEBSOCKET CLIENT (When isMockEnabled === false)
   // -------------------------------------------------------------
   const connectWebSocket = useCallback(() => {
-    if (USE_MOCK_DATA || !isSessionActive) return;
+    if (isMockEnabled || !isSessionActive) return;
 
-    if (!API_BASE_URL) {
-      setConnectionState('error');
-      console.warn('VITE_API_BASE_URL is not set.');
-      return;
-    }
-
+    const wsUrl = modelConfig.wsUrl;
     setConnectionState('connecting');
-    const newSessionId = `session-${Date.now()}`;
-    setSessionId(newSessionId);
 
-    const wsUrl = API_BASE_URL.replace(/^http/, 'ws') + `/ws/sessions/${newSessionId}`;
-    
     try {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         setConnectionState('connected');
-        // Initial auth ticket
-        ws.send(JSON.stringify({ type: 'auth', ws_ticket: 'demo-ticket-2026' }));
+        // Initial authentication message per formal protocol
+        const authMsg: ClientAuthMessage = {
+          type: 'auth',
+          ws_ticket: modelConfig.authTicket,
+          session_id: modelConfig.sessionId,
+          client_timestamp: Date.now()
+        };
+        ws.send(JSON.stringify(authMsg));
       };
 
       ws.onmessage = (event) => {
         try {
-          const data: MonitoringResult = JSON.parse(event.data);
+          const data: ServerMessage = JSON.parse(event.data);
+          
           if (data.type === 'result') {
             inFlightFrameRef.current = false;
             setTracks(data.tracks || []);
             recordFrameTelemetry(data.processing_ms || 0);
 
-            // If backend returned new events
+            // Append newly triggered suspicious events
             if (data.new_event_ids && data.new_event_ids.length > 0) {
-              // Add events
               data.tracks.filter(t => t.status === 'REVIEW').forEach(track => {
                 setEvents(prevEvents => {
                   if (prevEvents.some(e => e.track_id === track.track_id && e.review_status === 'PENDING')) {
                     return prevEvents;
                   }
                   const newEvt: MonitoringEvent = {
-                    event_id: `evt-${Date.now()}`,
-                    session_id: newSessionId,
+                    event_id: `evt-${Date.now()}-${track.track_id}`,
+                    session_id: modelConfig.sessionId,
                     track_id: track.track_id,
-                    reasons: track.reasons.length > 0 ? track.reasons : ['Nghi vấn tư thế'],
+                    reasons: track.reasons.length > 0 ? track.reasons : ['Nghi vấn tư thế bất thường'],
                     start_ms: data.captured_at_ms,
                     duration_ms: Math.max(track.turning_duration_ms || 0, track.bending_duration_ms || 0, 1500),
                     max_yaw_delta: track.yaw_delta_deg,
@@ -168,6 +199,11 @@ export function useMonitoringSocket(isSessionActive: boolean) {
                 });
               });
             }
+          } else if (data.type === 'pong') {
+            const rtt = Date.now() - data.client_timestamp;
+            setLatencyMs(rtt);
+          } else if (data.type === 'error') {
+            console.error('AI Model WebSocket error message:', data.message);
           }
         } catch (err) {
           console.error('WS JSON parse error:', err);
@@ -181,7 +217,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       ws.onclose = () => {
         setConnectionState('disconnected');
         inFlightFrameRef.current = false;
-        // Auto reconnect if session is still active
+        // Auto-reconnect if session is active
         if (isSessionActive) {
           setConnectionState('reconnecting');
           reconnectTimeoutRef.current = window.setTimeout(() => {
@@ -193,12 +229,12 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       wsRef.current = ws;
     } catch (err) {
       setConnectionState('error');
-      console.error('WebSocket initialization error:', err);
+      console.error('WebSocket connection failed:', err);
     }
-  }, [isSessionActive, recordFrameTelemetry]);
+  }, [isMockEnabled, isSessionActive, modelConfig, recordFrameTelemetry]);
 
   useEffect(() => {
-    if (!USE_MOCK_DATA) {
+    if (!isMockEnabled) {
       if (isSessionActive) {
         connectWebSocket();
       } else {
@@ -221,25 +257,32 @@ export function useMonitoringSocket(isSessionActive: boolean) {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [isSessionActive, connectWebSocket]);
+  }, [isMockEnabled, isSessionActive, connectWebSocket]);
 
   // Send Frame to WebSocket (Guarded with 1 in-flight frame limit)
-  const sendFrame = useCallback((base64: string, width: number, height: number) => {
-    if (USE_MOCK_DATA || !isSessionActive || !wsRef.current) return;
+  const sendFrame = useCallback((
+    base64: string, 
+    width: number, 
+    height: number,
+    facingMode: CameraFacingMode = 'environment'
+  ) => {
+    if (isMockEnabled || !isSessionActive || !wsRef.current) return;
     if (wsRef.current.readyState !== WebSocket.OPEN) return;
-    if (inFlightFrameRef.current) return; // Drop frame to prevent backpressure latency
+    if (inFlightFrameRef.current) return; // Drop frame to avoid backpressure latency
 
     inFlightFrameRef.current = true;
-    const msg = {
+    const msg: ClientFrameMessage = {
       type: 'frame',
       frame_id: Date.now(),
+      session_id: modelConfig.sessionId,
       captured_at_ms: Date.now(),
       width,
       height,
+      facing_mode: facingMode,
       jpeg_base64: base64
     };
     wsRef.current.send(JSON.stringify(msg));
-  }, [isSessionActive]);
+  }, [isMockEnabled, isSessionActive, modelConfig.sessionId]);
 
   // Supervisor Action: Update Event Status
   const updateEventStatus = useCallback((eventId: string, status: EventReviewStatus, reviewer: string = 'Giám thị') => {
@@ -278,15 +321,15 @@ export function useMonitoringSocket(isSessionActive: boolean) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `exam_events_${sessionId}.csv`;
+    link.download = `exam_events_${modelConfig.sessionId}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-  }, [events, sessionId]);
+  }, [events, modelConfig.sessionId]);
 
   // Export Summary JSON
   const exportJson = useCallback(() => {
     const payload = {
-      session_id: sessionId,
+      session_id: modelConfig.sessionId,
       exported_at: new Date().toISOString(),
       events_count: events.length,
       events,
@@ -296,18 +339,22 @@ export function useMonitoringSocket(isSessionActive: boolean) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `exam_summary_${sessionId}.json`;
+    link.download = `exam_summary_${modelConfig.sessionId}.json`;
     link.click();
     URL.revokeObjectURL(url);
-  }, [sessionId, events, tracks]);
+  }, [modelConfig.sessionId, events, tracks]);
 
   return {
+    isMockEnabled,
+    toggleMockMode,
+    setMockMode,
     connectionState,
     tracks,
     events,
     fps,
     latencyMs,
-    sessionId,
+    modelConfig,
+    updateModelConfig,
     sendFrame,
     updateEventStatus,
     exportCsv,
