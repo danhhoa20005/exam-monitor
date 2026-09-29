@@ -6,8 +6,10 @@ import os
 from pathlib import Path
 try:
     from pydantic_settings import BaseSettings
+    from pydantic import field_validator
 except ImportError:
     from pydantic import BaseModel as BaseSettings
+    field_validator = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -16,6 +18,14 @@ class Settings(BaseSettings):
     APP_NAME: str = "VisionGuard AI Posture Monitor Backend"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+
+    if field_validator is not None:
+        @field_validator("DEBUG", mode="before")
+        @classmethod
+        def parse_debug(cls, value):
+            if isinstance(value, str):
+                return value.strip().lower() in {"1", "true", "yes", "on", "debug", "development"}
+            return value
     
     # Server & Security
     HOST: str = "0.0.0.0"

@@ -2,6 +2,8 @@
 Head Pose Estimation using SolvePnP (EPNP + ITERATIVE).
 Calculates Euler angles (Yaw, Pitch, Roll) in degrees from 2D facial keypoints.
 """
+from __future__ import annotations
+
 import math
 try:
     import numpy as np
