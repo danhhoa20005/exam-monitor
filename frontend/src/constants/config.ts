@@ -1,6 +1,7 @@
 import { TrackResult, TrackStatus, MonitoringEvent } from '../types/monitoring';
 
-export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK === 'false' ? false : true;
+// Default to Live AI Mode (false) so no hardcoded mock yellow/amber boxes overlay the real camera
+export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK === 'true' ? true : false;
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export const CALIBRATION_TOTAL_SAMPLES = 20;
@@ -64,12 +65,7 @@ export const STATUS_STYLES: Record<TrackStatus, {
 };
 
 /**
- * 5 Initial Mock Tracks adhering strictly to Section 9 of Specification:
- * - ID 1: CALIBRATING 12/20
- * - ID 2: WITHIN_THRESHOLDS
- * - ID 3: OBSERVING quay đầu 0.8 giây
- * - ID 4: REVIEW quay đầu 1.7 giây
- * - ID 5: POSE_UNAVAILABLE
+ * 5 Initial Mock Tracks for Demo Simulation only:
  */
 export const INITIAL_MOCK_TRACKS: TrackResult[] = [
   {
