@@ -17,7 +17,9 @@ import {
 export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
   wsUrl: API_BASE_URL 
     ? (API_BASE_URL.replace(/^http/, 'ws') + '/ws/sessions/session-01')
-    : 'ws://127.0.0.1:8000/ws/sessions/session-01',
+    : (typeof window !== 'undefined' && window.location.protocol === 'https:'
+        ? 'wss://127.0.0.1:8000/ws/sessions/session-01'
+        : 'ws://127.0.0.1:8000/ws/sessions/session-01'),
   sessionId: 'session-local-01',
   targetFps: 5,
   jpegQuality: 0.75,
@@ -26,7 +28,7 @@ export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
   authTicket: 'demo-ticket-2026'
 };
 
-export function useMonitoringSocket(isSessionActive: boolean) {
+export function useMonitoringSocket(isCameraStreaming: boolean) {
   const [connectionState, setConnectionState] = useState<SocketConnectionState>('disconnected');
   const [tracks, setTracks] = useState<TrackResult[]>([]);
   const [events, setEvents] = useState<MonitoringEvent[]>([]);
@@ -38,6 +40,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   const reconnectTimeoutRef = useRef<number | null>(null);
   const inFlightFrameRef = useRef<boolean>(false);
   const fpsTimestampsRef = useRef<number[]>([]);
+  const isComponentMountedRef = useRef<boolean>(true);
 
   // Update AI Model Connection Configuration
   const updateModelConfig = useCallback((newConfig: Partial<ModelConnectionConfig>) => {
@@ -63,7 +66,17 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   // REAL WEBSOCKET CLIENT (100% Live AI Model Backend)
   // -------------------------------------------------------------
   const connectWebSocket = useCallback(() => {
-    if (!isSessionActive) return;
+    if (!isComponentMountedRef.current) return;
+
+    // Clean up existing socket before creating new one
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch (e) {
+        // ignore
+      }
+      wsRef.current = null;
+    }
 
     const wsUrl = modelConfig.wsUrl;
     setConnectionState('connecting');
@@ -72,6 +85,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
+        if (!isComponentMountedRef.current) return;
         setConnectionState('connected');
         // Send initial auth ticket
         const authMsg: ClientAuthMessage = {
@@ -84,6 +98,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       };
 
       ws.onmessage = (event) => {
+        if (!isComponentMountedRef.current) return;
         try {
           const data: ServerMessage = JSON.parse(event.data);
           
@@ -126,32 +141,42 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       };
 
       ws.onerror = () => {
+        if (!isComponentMountedRef.current) return;
         setConnectionState('error');
       };
 
       ws.onclose = () => {
+        if (!isComponentMountedRef.current) return;
         setConnectionState('disconnected');
         inFlightFrameRef.current = false;
-        // Auto-reconnect if camera is streaming
-        if (isSessionActive) {
-          setConnectionState('reconnecting');
-          reconnectTimeoutRef.current = window.setTimeout(() => {
-            connectWebSocket();
-          }, 3000);
+        
+        // Auto-reconnect with 3s backoff
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
         }
+        reconnectTimeoutRef.current = window.setTimeout(() => {
+          if (isComponentMountedRef.current) {
+            setConnectionState('reconnecting');
+            connectWebSocket();
+          }
+        }, 3000);
       };
 
       wsRef.current = ws;
     } catch (err) {
+      if (!isComponentMountedRef.current) return;
       setConnectionState('error');
       console.error('WebSocket connection failed:', err);
     }
-  }, [isSessionActive, modelConfig, recordFrameTelemetry]);
+  }, [modelConfig, recordFrameTelemetry]);
 
+  // Connect on mount and re-connect when config changes
   useEffect(() => {
-    if (isSessionActive) {
-      connectWebSocket();
-    } else {
+    isComponentMountedRef.current = true;
+    connectWebSocket();
+
+    return () => {
+      isComponentMountedRef.current = false;
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -159,20 +184,8 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      setConnectionState('disconnected');
-      setTracks([]);
-      setFps(0);
-      setLatencyMs(0);
-    }
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
     };
-  }, [isSessionActive, connectWebSocket]);
+  }, [connectWebSocket]);
 
   // Send Frame to WebSocket (Guarded with 1 in-flight frame limit)
   const sendFrame = useCallback((
@@ -181,7 +194,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
     height: number,
     facingMode: CameraFacingMode = 'environment'
   ) => {
-    if (!isSessionActive || !wsRef.current) return;
+    if (!isCameraStreaming || !wsRef.current) return;
     if (wsRef.current.readyState !== WebSocket.OPEN) return;
     if (inFlightFrameRef.current) return; // Drop frame to avoid backpressure
 
@@ -197,7 +210,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       jpeg_base64: base64
     };
     wsRef.current.send(JSON.stringify(msg));
-  }, [isSessionActive, modelConfig.sessionId]);
+  }, [isCameraStreaming, modelConfig.sessionId]);
 
   // Supervisor Action: Update Event Status
   const updateEventStatus = useCallback((eventId: string, status: EventReviewStatus, reviewer: string = 'Giám thị') => {
