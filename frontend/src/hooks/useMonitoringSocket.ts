@@ -7,7 +7,7 @@ import {
   ModelConnectionConfig,
   CameraFacingMode
 } from '../types/monitoring';
-import { API_BASE_URL } from '../constants/config';
+import { API_BASE_URL, WS_BASE_URL } from '../constants/config';
 import { 
   ClientAuthMessage, 
   ClientFrameMessage, 
@@ -15,11 +15,9 @@ import {
 } from '../types/protocol';
 
 export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
-  wsUrl: API_BASE_URL 
-    ? (API_BASE_URL.replace(/^http/, 'ws') + '/ws/sessions/session-01')
-    : (typeof window !== 'undefined' && window.location.protocol === 'https:'
-        ? 'wss://127.0.0.1:8000/ws/sessions/session-01'
-        : 'ws://127.0.0.1:8000/ws/sessions/session-01'),
+  wsUrl: (WS_BASE_URL || API_BASE_URL.replace(/^http/, 'ws'))
+    ? `${WS_BASE_URL || API_BASE_URL.replace(/^http/, 'ws')}/ws/sessions/session-01`
+    : (import.meta.env.PROD ? '' : 'ws://127.0.0.1:8000/ws/sessions/session-01'),
   sessionId: 'session-local-01',
   targetFps: 5,
   jpegQuality: 0.75,
@@ -79,6 +77,11 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     }
 
     const wsUrl = modelConfig.wsUrl;
+    if (!wsUrl) {
+      setConnectionState('error');
+      console.error('AI backend is not configured. Set VITE_API_BASE_URL or VITE_WS_URL in Vercel.');
+      return;
+    }
     setConnectionState('connecting');
 
     try {

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: visionguard-ai-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /ready
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: DEMO_ACCESS_CODE
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true

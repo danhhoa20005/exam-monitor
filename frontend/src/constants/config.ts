@@ -1,6 +1,7 @@
 import { TrackStatus } from '../types/monitoring';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+export const WS_BASE_URL = (import.meta.env.VITE_WS_URL || '').replace(/\/+$/, '');
 
 export const CALIBRATION_TOTAL_SAMPLES = 20;
 

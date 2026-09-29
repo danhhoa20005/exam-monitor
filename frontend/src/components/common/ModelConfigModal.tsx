@@ -120,11 +120,11 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                   type="text"
                   value={formState.wsUrl}
                   onChange={(e) => setFormState(prev => ({ ...prev, wsUrl: e.target.value }))}
-                  placeholder="ws://127.0.0.1:8000/ws/sessions/session-01"
+                  placeholder="wss://your-backend.example.com/ws/sessions/session-01"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Mặc định: <code className="text-blue-300">ws://127.0.0.1:8000/ws/sessions/session-01</code> (hoặc IP Wifi/Cloudflare tunnel)
+                  Production cần URL public bắt đầu bằng <code className="text-blue-300">wss://</code>; không dùng 127.0.0.1 trên Vercel.
                 </p>
               </div>
 
