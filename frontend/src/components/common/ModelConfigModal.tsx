@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { X, Settings, Radio, Cpu, Sparkles, Server, CheckCircle2, ShieldCheck, Code2 } from 'lucide-react';
+import { X, Settings, Sparkles, Server, CheckCircle2, ShieldCheck, Code2, Cpu } from 'lucide-react';
 import { ModelConnectionConfig, SocketConnectionState } from '../../types/monitoring';
 
 interface ModelConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  isMockEnabled: boolean;
-  onSetMockMode: (enabled: boolean) => void;
   connectionState: SocketConnectionState;
   modelConfig: ModelConnectionConfig;
   onUpdateConfig: (newConfig: Partial<ModelConnectionConfig>) => void;
@@ -15,8 +13,6 @@ interface ModelConfigModalProps {
 export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
   isOpen,
   onClose,
-  isMockEnabled,
-  onSetMockMode,
   connectionState,
   modelConfig,
   onUpdateConfig
@@ -46,10 +42,10 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">
-                Cài Đặt Kết Nối AI & Camera
+                Cài Đặt Kết Nối AI Model
               </h2>
               <p className="text-xs text-slate-400">
-                Cấu hình cổng chờ ghép nối AI Model (YOLOv8 + ByteTrack + MediaPipe)
+                Cấu hình WebSocket kết nối trực tiếp với YOLOv8m (`best.pt`) & MediaPipe
               </p>
             </div>
           </div>
@@ -86,7 +82,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
             }`}
           >
             <Code2 size={14} />
-            <span>Chuẩn Protocol Ghép Model</span>
+            <span>Chuẩn Protocol JSON</span>
           </button>
         </div>
 
@@ -94,54 +90,31 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
         <div className="p-5 overflow-y-auto space-y-5 flex-1">
           {activeTab === 'config' ? (
             <form id="model-config-form" onSubmit={handleSave} className="space-y-4">
-              {/* Mode Selection */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-2">
-                  Chế Độ Vận Hành:
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onSetMockMode(true)}
-                    className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
-                      isMockEnabled
-                        ? 'bg-blue-950/50 border-blue-500 text-blue-100 shadow-md shadow-blue-500/10'
-                        : 'bg-slate-800/50 border-slate-700/70 text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 text-xs font-bold">
-                      <Cpu size={15} className={isMockEnabled ? 'text-blue-400' : 'text-slate-400'} />
-                      <span>Giả Lập (Mock Demo)</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 leading-tight">
-                      Mô phỏng 5 trạng thái tư thế chuẩn không cần backend.
+              
+              {/* Active Model Info Badge */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-800/80 flex items-center justify-center text-emerald-400">
+                    <Cpu size={16} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-200 block">
+                      YOLOv8m (`best.pt`) + MediaPipe Pose
                     </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onSetMockMode(false)}
-                    className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
-                      !isMockEnabled
-                        ? 'bg-emerald-950/50 border-emerald-500 text-emerald-100 shadow-md shadow-emerald-500/10'
-                        : 'bg-slate-800/50 border-slate-700/70 text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 text-xs font-bold">
-                      <Radio size={15} className={!isMockEnabled ? 'text-emerald-400' : 'text-slate-400'} />
-                      <span>Live AI Model (WebSocket)</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 leading-tight">
-                      Gửi frame camera trực tiếp tới server AI qua WebSocket.
+                    <span className="text-[11px] text-slate-400">
+                      Nhận diện thí sinh & theo dõi góc lệch đầu Yaw (ΔYaw)
                     </span>
-                  </button>
+                  </div>
                 </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                  SẴN SÀNG
+                </span>
               </div>
 
               {/* WebSocket URL */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  WebSocket Endpoint (URL Backend AI):
+                  WebSocket Endpoint (URL Server AI):
                 </label>
                 <input
                   type="text"
@@ -151,7 +124,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Ví dụ local: <code className="text-blue-300">ws://127.0.0.1:8000/ws/sessions/session-01</code>
+                  Mặc định: <code className="text-blue-300">ws://127.0.0.1:8000/ws/sessions/session-01</code> (hoặc IP Wifi/Cloudflare tunnel)
                 </p>
               </div>
 
@@ -159,7 +132,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Mã Phòng / Session ID:
+                    Mã Phiên / Session ID:
                   </label>
                   <input
                     type="text"
@@ -170,7 +143,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Auth Token / Ticket:
+                    Auth Ticket / Token:
                   </label>
                   <input
                     type="text"
@@ -219,12 +192,12 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
 
               {/* Status info box */}
               <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Trạng thái kết nối hiện tại:</span>
+                <span className="text-slate-400">Trạng thái kết nối Server:</span>
                 <span className="font-semibold capitalize text-slate-200 flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${
                     connectionState === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'
                   }`} />
-                  {isMockEnabled ? 'Đang chạy Mock Demo' : connectionState}
+                  {connectionState === 'connected' ? 'Đã kết nối Live WebSocket' : connectionState}
                 </span>
               </div>
             </form>
@@ -233,7 +206,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
               <div className="bg-blue-950/30 border border-blue-800/60 rounded-xl p-3 text-blue-200 text-xs flex items-start gap-2">
                 <Sparkles size={16} className="text-blue-400 shrink-0 mt-0.5" />
                 <p>
-                  Dưới đây là định dạng JSON chuẩn mà Frontend gửi đi và chờ nhận từ AI model (Python YOLOv8 + ByteTrack + MediaPipe).
+                  Định dạng JSON gửi nhận giữa Frontend và Backend Python AI (`best.pt` YOLOv8 + MediaPipe).
                 </p>
               </div>
 
@@ -290,8 +263,8 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
         {/* Modal Footer */}
         <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between">
           <span className="text-[11px] text-slate-400 flex items-center gap-1">
-            <ShieldCheck size={14} className="text-blue-400" />
-            <span>Sẵn sàng cho việc ghép model</span>
+            <ShieldCheck size={14} className="text-emerald-400" />
+            <span>AI Model Backend Ready</span>
           </span>
           <div className="flex items-center gap-2">
             <button

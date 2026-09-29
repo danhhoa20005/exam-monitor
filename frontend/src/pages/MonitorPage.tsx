@@ -7,7 +7,7 @@ import { Header } from '../components/common/Header';
 import { ModelConfigModal } from '../components/common/ModelConfigModal';
 import { useCamera } from '../hooks/useCamera';
 import { useMonitoringSocket } from '../hooks/useMonitoringSocket';
-import { Users, Info, ShieldCheck } from 'lucide-react';
+import { Users, Info, Radio } from 'lucide-react';
 
 export const MonitorPage: React.FC = () => {
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
@@ -29,11 +29,8 @@ export const MonitorPage: React.FC = () => {
     captureFrame
   } = useCamera();
 
-  // Monitoring WebSocket & AI Model State Management Hook
+  // Monitoring WebSocket & AI Model State Management Hook (100% Live AI)
   const {
-    isMockEnabled,
-    toggleMockMode,
-    setMockMode,
     connectionState,
     tracks,
     events,
@@ -57,9 +54,9 @@ export const MonitorPage: React.FC = () => {
     stopCamera();
   }, [stopCamera]);
 
-  // Frame Capture Interval (Sends JPEG @ configured FPS & Resolution when streaming in Live WebSocket mode)
+  // Frame Capture Interval (Streams camera frames directly to YOLOv8 & MediaPipe Backend)
   useEffect(() => {
-    if (!isStreaming || isMockEnabled) return;
+    if (!isStreaming) return;
 
     const intervalMs = Math.max(50, Math.floor(1000 / (modelConfig.targetFps || 5)));
     const interval = setInterval(() => {
@@ -74,7 +71,7 @@ export const MonitorPage: React.FC = () => {
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [isStreaming, isMockEnabled, modelConfig, captureFrame, sendFrame]);
+  }, [isStreaming, modelConfig, captureFrame, sendFrame]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased font-sans pb-safe">
@@ -85,8 +82,6 @@ export const MonitorPage: React.FC = () => {
         facingMode={facingMode}
         fps={fps}
         latencyMs={latencyMs}
-        useMock={isMockEnabled}
-        onToggleMock={toggleMockMode}
         onStart={handleStart}
         onStop={handleStop}
         onToggleCamera={toggleCamera}
@@ -126,11 +121,14 @@ export const MonitorPage: React.FC = () => {
             <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 text-xs text-slate-400 shadow-sm">
               <div className="flex items-center gap-2 font-bold text-slate-200 mb-2">
                 <Info size={15} className="text-blue-400" />
-                <span>Quy Trình Giám Sát & Hiệu Chuẩn Phòng Thi:</span>
+                <span>Quy Trình Giám Sát AI Realtime (Model `best.pt`):</span>
               </div>
               <ul className="list-disc list-inside space-y-1.5 text-[11px] text-slate-400 leading-relaxed">
                 <li>
                   Mặc định hệ thống sử dụng <strong className="text-slate-200">Camera Sau</strong> để bao quát rộng, hoặc bấm <strong className="text-blue-300">"Chuyển: Cam Trước"</strong> khi giám sát góc cá nhân.
+                </li>
+                <li>
+                  Sử dụng các nút ở góc trên camera để <strong className="text-blue-300">Phóng to (Zoom 1x-3x)</strong>, <strong className="text-blue-300">Toàn màn hình</strong> hoặc <strong className="text-blue-300">Bật/tắt khung AI</strong>.
                 </li>
                 <li>
                   Thí sinh ngồi thẳng hướng mặt về camera để AI lấy <strong className="text-slate-200">20 mẫu mốc tham chiếu</strong> ban đầu.
@@ -154,16 +152,18 @@ export const MonitorPage: React.FC = () => {
                     Đối Tượng Đang Theo Dõi ({tracks.length})
                   </h2>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                  <ShieldCheck size={13} className="text-emerald-400" />
-                  <span>Realtime AI</span>
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-800/60">
+                  <Radio size={11} className="animate-pulse" />
+                  <span>Live YOLOv8m</span>
                 </div>
               </div>
 
               <div className="space-y-2.5 max-h-[260px] sm:max-h-[300px] overflow-y-auto pr-1">
                 {tracks.length === 0 ? (
-                  <div className="p-6 text-center text-slate-500 text-xs bg-slate-900/40 rounded-2xl border border-slate-800/60">
-                    Chưa phát hiện đối tượng nào trong khung hình.
+                  <div className="p-6 text-center text-slate-500 text-xs bg-slate-900/40 rounded-2xl border border-slate-800/60 leading-relaxed">
+                    {isStreaming 
+                      ? "Đang quét hình ảnh qua Model AI — Chưa phát hiện đối tượng trong khung hình."
+                      : "Camera chưa mở. Nhấn 'Mở Camera' để bắt đầu giám sát."}
                   </div>
                 ) : (
                   tracks.map(track => (
@@ -189,8 +189,6 @@ export const MonitorPage: React.FC = () => {
       <ModelConfigModal
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
-        isMockEnabled={isMockEnabled}
-        onSetMockMode={setMockMode}
         connectionState={connectionState}
         modelConfig={modelConfig}
         onUpdateConfig={updateModelConfig}

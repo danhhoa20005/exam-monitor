@@ -7,12 +7,7 @@ import {
   ModelConnectionConfig,
   CameraFacingMode
 } from '../types/monitoring';
-import { 
-  USE_MOCK_DATA, 
-  API_BASE_URL, 
-  INITIAL_MOCK_TRACKS, 
-  INITIAL_MOCK_EVENTS 
-} from '../constants/config';
+import { API_BASE_URL } from '../constants/config';
 import { 
   ClientAuthMessage, 
   ClientFrameMessage, 
@@ -32,7 +27,6 @@ export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
 };
 
 export function useMonitoringSocket(isSessionActive: boolean) {
-  const [isMockEnabled, setIsMockEnabled] = useState<boolean>(USE_MOCK_DATA);
   const [connectionState, setConnectionState] = useState<SocketConnectionState>('disconnected');
   const [tracks, setTracks] = useState<TrackResult[]>([]);
   const [events, setEvents] = useState<MonitoringEvent[]>([]);
@@ -44,17 +38,6 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   const reconnectTimeoutRef = useRef<number | null>(null);
   const inFlightFrameRef = useRef<boolean>(false);
   const fpsTimestampsRef = useRef<number[]>([]);
-  const mockIntervalRef = useRef<number | null>(null);
-
-  // Toggle between Mock and Live WebSocket mode
-  const toggleMockMode = useCallback(() => {
-    setIsMockEnabled(prev => !prev);
-  }, []);
-
-  // Set mock mode explicitly
-  const setMockMode = useCallback((enabled: boolean) => {
-    setIsMockEnabled(enabled);
-  }, []);
 
   // Update AI Model Connection Configuration
   const updateModelConfig = useCallback((newConfig: Partial<ModelConnectionConfig>) => {
@@ -77,78 +60,10 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   }, []);
 
   // -------------------------------------------------------------
-  // 1. MOCK DATA ENGINE (When isMockEnabled === true)
-  // -------------------------------------------------------------
-  useEffect(() => {
-    if (!isMockEnabled) return;
-
-    if (!isSessionActive) {
-      setConnectionState('disconnected');
-      setTracks([]);
-      setFps(0);
-      setLatencyMs(0);
-      if (mockIntervalRef.current) {
-        clearInterval(mockIntervalRef.current);
-        mockIntervalRef.current = null;
-      }
-      return;
-    }
-
-    setConnectionState('connected');
-    setTracks(INITIAL_MOCK_TRACKS);
-    setEvents(INITIAL_MOCK_EVENTS);
-
-    let mockTick = 0;
-    mockIntervalRef.current = window.setInterval(() => {
-      mockTick += 1;
-      recordFrameTelemetry(28 + Math.floor(Math.sin(mockTick * 0.2) * 6));
-
-      // Dynamic animation for 5 mock candidates per specification
-      setTracks(prev => {
-        if (prev.length === 0) return INITIAL_MOCK_TRACKS;
-        return prev.map(t => {
-          if (t.track_id === 1) {
-            // Calibrating progresses: 12 -> 20
-            const nextSamples = Math.min(20, t.calibration_samples + 1);
-            return {
-              ...t,
-              calibration_samples: nextSamples,
-              status: nextSamples >= 20 ? 'WITHIN_THRESHOLDS' : 'CALIBRATING'
-            };
-          }
-          if (t.track_id === 3) {
-            // Observing slight yaw fluctuation
-            return {
-              ...t,
-              yaw_delta_deg: Number((38.0 + Math.sin(mockTick * 0.5) * 3).toFixed(1)),
-              turning_duration_ms: (t.turning_duration_ms || 800) + 200
-            };
-          }
-          if (t.track_id === 4) {
-            // Review state persistent
-            return {
-              ...t,
-              yaw_delta_deg: Number((44.0 + Math.cos(mockTick * 0.3) * 2).toFixed(1)),
-              turning_duration_ms: (t.turning_duration_ms || 1700) + 200
-            };
-          }
-          return t;
-        });
-      });
-    }, 200); // 5 FPS
-
-    return () => {
-      if (mockIntervalRef.current) {
-        clearInterval(mockIntervalRef.current);
-      }
-    };
-  }, [isMockEnabled, isSessionActive, recordFrameTelemetry]);
-
-  // -------------------------------------------------------------
-  // 2. REAL WEBSOCKET CLIENT (When isMockEnabled === false)
+  // REAL WEBSOCKET CLIENT (100% Live AI Model Backend)
   // -------------------------------------------------------------
   const connectWebSocket = useCallback(() => {
-    if (isMockEnabled || !isSessionActive) return;
+    if (!isSessionActive) return;
 
     const wsUrl = modelConfig.wsUrl;
     setConnectionState('connecting');
@@ -158,7 +73,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
 
       ws.onopen = () => {
         setConnectionState('connected');
-        // Initial authentication message per formal protocol
+        // Send initial auth ticket
         const authMsg: ClientAuthMessage = {
           type: 'auth',
           ws_ticket: modelConfig.authTicket,
@@ -177,7 +92,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
             setTracks(data.tracks || []);
             recordFrameTelemetry(data.processing_ms || 0);
 
-            // Append newly triggered suspicious events
+            // Append newly triggered suspicious events from real AI model
             if (data.new_event_ids && data.new_event_ids.length > 0) {
               data.tracks.filter(t => t.status === 'REVIEW').forEach(track => {
                 setEvents(prevEvents => {
@@ -217,7 +132,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       ws.onclose = () => {
         setConnectionState('disconnected');
         inFlightFrameRef.current = false;
-        // Auto-reconnect if session is active
+        // Auto-reconnect if camera is streaming
         if (isSessionActive) {
           setConnectionState('reconnecting');
           reconnectTimeoutRef.current = window.setTimeout(() => {
@@ -231,23 +146,23 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       setConnectionState('error');
       console.error('WebSocket connection failed:', err);
     }
-  }, [isMockEnabled, isSessionActive, modelConfig, recordFrameTelemetry]);
+  }, [isSessionActive, modelConfig, recordFrameTelemetry]);
 
   useEffect(() => {
-    if (!isMockEnabled) {
-      if (isSessionActive) {
-        connectWebSocket();
-      } else {
-        if (wsRef.current) {
-          wsRef.current.close();
-          wsRef.current = null;
-        }
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-        }
-        setConnectionState('disconnected');
-        setTracks([]);
+    if (isSessionActive) {
+      connectWebSocket();
+    } else {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      setConnectionState('disconnected');
+      setTracks([]);
+      setFps(0);
+      setLatencyMs(0);
     }
     return () => {
       if (wsRef.current) {
@@ -257,7 +172,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [isMockEnabled, isSessionActive, connectWebSocket]);
+  }, [isSessionActive, connectWebSocket]);
 
   // Send Frame to WebSocket (Guarded with 1 in-flight frame limit)
   const sendFrame = useCallback((
@@ -266,9 +181,9 @@ export function useMonitoringSocket(isSessionActive: boolean) {
     height: number,
     facingMode: CameraFacingMode = 'environment'
   ) => {
-    if (isMockEnabled || !isSessionActive || !wsRef.current) return;
+    if (!isSessionActive || !wsRef.current) return;
     if (wsRef.current.readyState !== WebSocket.OPEN) return;
-    if (inFlightFrameRef.current) return; // Drop frame to avoid backpressure latency
+    if (inFlightFrameRef.current) return; // Drop frame to avoid backpressure
 
     inFlightFrameRef.current = true;
     const msg: ClientFrameMessage = {
@@ -282,7 +197,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
       jpeg_base64: base64
     };
     wsRef.current.send(JSON.stringify(msg));
-  }, [isMockEnabled, isSessionActive, modelConfig.sessionId]);
+  }, [isSessionActive, modelConfig.sessionId]);
 
   // Supervisor Action: Update Event Status
   const updateEventStatus = useCallback((eventId: string, status: EventReviewStatus, reviewer: string = 'Giám thị') => {
@@ -345,9 +260,7 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   }, [modelConfig.sessionId, events, tracks]);
 
   return {
-    isMockEnabled,
-    toggleMockMode,
-    setMockMode,
+    isMockEnabled: false,
     connectionState,
     tracks,
     events,
