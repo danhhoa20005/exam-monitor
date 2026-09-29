@@ -86,7 +86,9 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
 
       ws.onopen = () => {
         if (!isComponentMountedRef.current) return;
-        setConnectionState('connected');
+        // The socket is open, but the AI session is authenticated only after
+        // the backend returns session_info.
+        setConnectionState('connecting');
         // Send initial auth ticket
         const authMsg: ClientAuthMessage = {
           type: 'auth',
@@ -129,10 +131,14 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
                 });
               });
             }
+          } else if (data.type === 'session_info') {
+            setConnectionState('connected');
           } else if (data.type === 'pong') {
             const rtt = Date.now() - data.client_timestamp;
             setLatencyMs(rtt);
           } else if (data.type === 'error') {
+            inFlightFrameRef.current = false;
+            setConnectionState('error');
             console.error('AI Model WebSocket error message:', data.message);
           }
         } catch (err) {

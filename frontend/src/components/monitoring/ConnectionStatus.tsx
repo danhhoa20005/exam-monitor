@@ -21,7 +21,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     dotColor = 'bg-emerald-400 shadow-sm shadow-emerald-400/50';
     badgeBorder = 'border-emerald-500/30 bg-emerald-950/40 text-emerald-300';
   } else if (status === 'connecting' || status === 'reconnecting') {
-    label = status === 'connecting' ? 'Đang kết nối Server...' : 'Đang kết nối lại...';
+    label = status === 'connecting' ? 'Đang xác thực AI Model...' : 'Đang kết nối lại...';
     dotColor = 'bg-amber-400 animate-pulse';
     badgeBorder = 'border-amber-500/30 bg-amber-950/40 text-amber-300';
   } else if (status === 'error') {

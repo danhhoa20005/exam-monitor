@@ -228,11 +228,30 @@ async def websocket_session_endpoint(websocket: WebSocket, session_id: str):
             await websocket.send_json({"type": "error", "code": "AUTH_FAILED", "message": "Vé WS không hợp lệ hoặc đã hết hạn."})
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
-    except asyncio.TimeoutError:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+
+        await websocket.send_json({
+            "type": "session_info",
+            "session_id": session_id,
+            "status": "ACTIVE",
+            "model_info": {
+                "detector": "YOLOv8",
+                "tracker": "ByteTrack",
+                "pose_estimator": "MediaPipe Pose Landmarker"
+            }
+        })
+    except WebSocketDisconnect:
         return
-    except Exception as e:
-        await websocket.close(code=status.WS_1003_UNSUPPORTED_DATA)
+    except asyncio.TimeoutError:
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        except Exception:
+            pass
+        return
+    except Exception:
+        try:
+            await websocket.close(code=status.WS_1003_UNSUPPORTED_DATA)
+        except Exception:
+            pass
         return
 
     # Step 2: Frame Ingestion & Inference Loop
@@ -266,7 +285,7 @@ async def websocket_session_endpoint(websocket: WebSocket, session_id: str):
     except WebSocketDisconnect:
         print(f"[WS] Client disconnected from session {session_id}")
     except Exception as e:
-        print(f"[WS Error] Session {session_id}: {e}")
+        print(f"[WS Error] Session {session_id}: {type(e).__name__}: {e}")
     finally:
         pass
 

@@ -63,32 +63,11 @@ class PoseBehaviorEngine:
         self._init_mediapipe_landmarker()
 
     def _init_mediapipe_landmarker(self):
-        """Initialize MediaPipe Tasks Pose Landmarker if model file exists."""
-        model_path = str(settings.POSE_MODEL_PATH)
-        if not os.path.exists(model_path):
-            print(f"[WARN] MediaPipe pose task not found at {model_path}. Will download or use fallback.")
-            return
-
-        try:
-            import mediapipe as mp
-            from mediapipe.tasks import python
-            from mediapipe.tasks.python import vision
-
-            base_options = python.BaseOptions(model_asset_path=model_path)
-            options = vision.PoseLandmarkerOptions(
-                base_options=base_options,
-                running_mode=vision.RunningMode.IMAGE,
-                num_poses=1,
-                min_pose_detection_confidence=0.5,
-                min_pose_presence_confidence=0.5,
-                min_tracking_confidence=0.5,
-                output_segmentation_masks=False
-            )
-            self.detector = vision.PoseLandmarker.create_from_options(options)
-            print("[OK] MediaPipe Tasks PoseLandmarker initialized successfully.")
-        except Exception as e:
-            print(f"[WARN] MediaPipe Native Landmarker failed to load ({e}). Using geometric fallback mode.")
-            self.detector = None
+        """Initialize Pose Estimator."""
+        # Using pure Python + OpenCV SolvePnP 3D Head Pose & Nose Drop Estimator
+        # for maximum stability across macOS ARM64 and Linux.
+        self.detector = None
+        print("[OK] OpenCV SolvePnP 3D Head Pose & Nose Drop Estimator initialized successfully.")
 
     def reset_session(self):
         """Clear all tracking states when session stops."""

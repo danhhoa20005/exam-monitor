@@ -50,7 +50,7 @@ class SessionInferencePipeline:
             try:
                 from ultralytics import YOLO
                 self.yolo_model = YOLO(target_path)
-                print("[OK] YOLOv8 model loaded into memory successfully.")
+                print(f"[OK] YOLOv8 model loaded into memory successfully. Classes: {self.yolo_model.names}")
             except Exception as e:
                 print(f"[WARN] Failed to load YOLO from {target_path}: {e}")
                 self.yolo_model = None
@@ -110,12 +110,18 @@ class SessionInferencePipeline:
                 if results and len(results) > 0 and results[0].boxes is not None:
                     boxes = results[0].boxes
                     for box in boxes:
-                        # If model has class names, filter for student/person
                         cls_id = int(box.cls[0].item())
-                        cls_name = self.yolo_model.names.get(cls_id, "")
-                        
-                        # Accept if class is 'student' or 'person' (class 0)
-                        if cls_name in ("student", "person") or cls_id == 0:
+                        names = self.yolo_model.names
+                        cls_name = names.get(cls_id, "") if isinstance(names, dict) else (
+                            names[cls_id] if 0 <= cls_id < len(names) else ""
+                        )
+                        normalized_name = str(cls_name).strip().lower().replace("-", "_").replace(" ", "_")
+                        is_single_class = len(names) == 1
+                        is_person_class = normalized_name in {
+                            "person", "student", "student_v1", "candidate", "human", "ผู้เรียน"
+                        }
+
+                        if is_single_class or is_person_class or cls_id == 0:
                             track_id = int(box.id[0].item()) if box.id is not None else 1
                             conf = float(box.conf[0].item())
                             xyxy = box.xyxy[0].tolist()
