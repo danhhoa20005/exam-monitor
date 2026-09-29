@@ -80,6 +80,10 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     if (!wsUrl) {
       setConnectionState('error');
       console.error('AI backend is not configured. Set VITE_API_BASE_URL or VITE_WS_URL in Vercel.');
+      // Stop infinite reconnect loop in Vercel if wsUrl is missing
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       return;
     }
     setConnectionState('connecting');
