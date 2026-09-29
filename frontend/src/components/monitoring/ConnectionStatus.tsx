@@ -1,6 +1,5 @@
 import React from 'react';
 import { SocketConnectionState } from '../../types/monitoring';
-import { USE_MOCK_DATA } from '../../constants/config';
 
 interface ConnectionStatusProps {
   status: SocketConnectionState;
@@ -13,20 +12,20 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   fps = 0,
   latencyMs = 0
 }) => {
-  let label = 'Chưa kết nối';
+  let label = 'Chưa kết nối AI';
   let dotColor = 'bg-slate-500';
   let badgeBorder = 'border-slate-700/60 bg-slate-900/60 text-slate-300';
 
   if (status === 'connected') {
-    label = USE_MOCK_DATA ? 'Chế độ Demo (Mock)' : 'Đã kết nối AI';
+    label = 'Đã kết nối AI Model';
     dotColor = 'bg-emerald-400 shadow-sm shadow-emerald-400/50';
     badgeBorder = 'border-emerald-500/30 bg-emerald-950/40 text-emerald-300';
   } else if (status === 'connecting' || status === 'reconnecting') {
-    label = status === 'connecting' ? 'Đang kết nối...' : 'Đang kết nối lại...';
+    label = status === 'connecting' ? 'Đang kết nối Server...' : 'Đang kết nối lại...';
     dotColor = 'bg-amber-400 animate-pulse';
     badgeBorder = 'border-amber-500/30 bg-amber-950/40 text-amber-300';
   } else if (status === 'error') {
-    label = 'Lỗi kết nối AI';
+    label = 'Lỗi kết nối Server';
     dotColor = 'bg-rose-400';
     badgeBorder = 'border-rose-500/30 bg-rose-950/40 text-rose-300';
   }

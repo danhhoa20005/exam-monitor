@@ -260,7 +260,6 @@ export function useMonitoringSocket(isSessionActive: boolean) {
   }, [modelConfig.sessionId, events, tracks]);
 
   return {
-    isMockEnabled: false,
     connectionState,
     tracks,
     events,
