@@ -1,10 +1,11 @@
-import React from 'react';
-import { Play, Square, SwitchCamera, Video, Gauge, Zap } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Play, Square, SwitchCamera, Video, Gauge, Zap, Upload, Film } from 'lucide-react';
 import { CameraFacingMode } from '../../types/monitoring';
 import { VideoDevice } from '../../hooks/useCamera';
 
 interface CameraControlsProps {
   isStreaming: boolean;
+  isVideoFile?: boolean;
   facingMode: CameraFacingMode;
   activeDeviceId: string;
   availableDevices: VideoDevice[];
@@ -14,10 +15,12 @@ interface CameraControlsProps {
   onStop: () => void;
   onToggleCamera: () => void;
   onSelectDevice: (deviceId: string) => void;
+  onSelectVideoFile?: (file: File) => void;
 }
 
 export const CameraControls: React.FC<CameraControlsProps> = ({
   isStreaming,
+  isVideoFile = false,
   facingMode,
   activeDeviceId,
   availableDevices,
@@ -26,28 +29,67 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   onStart,
   onStop,
   onToggleCamera,
-  onSelectDevice
+  onSelectDevice,
+  onSelectVideoFile
 }) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onSelectVideoFile) {
+      onSelectVideoFile(file);
+    }
+    // Reset input so same file can be picked again
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div className="flex flex-col gap-3 w-full py-1">
       {/* Primary Touch Action Bar */}
-      <div className="grid grid-cols-2 gap-3 w-full">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 w-full">
         {/* Toggle Front / Back Camera Button */}
         <button
           type="button"
           onClick={onToggleCamera}
-          disabled={!isStreaming}
-          className={`flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl text-xs sm:text-sm font-semibold transition-all select-none active:scale-[0.98] ${
-            isStreaming
+          disabled={!isStreaming || isVideoFile}
+          className={`flex items-center justify-center gap-1.5 px-3 py-3 rounded-2xl text-xs sm:text-sm font-semibold transition-all select-none active:scale-[0.98] ${
+            isStreaming && !isVideoFile
               ? 'bg-slate-900/90 text-slate-100 border border-slate-700/80 hover:bg-slate-800 shadow-md hover:border-slate-600'
               : 'bg-slate-950/40 text-slate-600 border border-slate-800/40 cursor-not-allowed'
           }`}
           title={`Đổi sang camera ${facingMode === 'environment' ? 'trước' : 'sau'}`}
         >
-          <SwitchCamera size={18} className={isStreaming ? 'text-cyan-400' : 'text-slate-600'} />
+          <SwitchCamera size={16} className={isStreaming && !isVideoFile ? 'text-cyan-400' : 'text-slate-600'} />
           <span className="truncate">
-            {facingMode === 'environment' ? 'Chuyển: Cam Trước' : 'Chuyển: Cam Sau'}
+            {facingMode === 'environment' ? 'Cam Trước' : 'Cam Sau'}
           </span>
+        </button>
+
+        {/* Upload Video Test Button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center justify-center gap-1.5 px-3 py-3 rounded-2xl text-xs sm:text-sm font-semibold bg-slate-900/90 text-slate-100 border border-indigo-700/60 hover:border-indigo-500 hover:bg-indigo-950/40 transition-all select-none active:scale-[0.98] shadow-md shadow-indigo-950/40"
+          title="Tải video từ máy tính hoặc điện thoại để AI nhận diện thử"
+        >
+          <input 
+            ref={fileInputRef} 
+            type="file" 
+            accept="video/*" 
+            onChange={handleFileChange} 
+            className="hidden" 
+          />
+          {isVideoFile ? (
+            <>
+              <Film size={16} className="text-purple-400 animate-pulse" />
+              <span className="truncate text-purple-200">Đang Phát Video</span>
+            </>
+          ) : (
+            <>
+              <Upload size={16} className="text-indigo-400" />
+              <span className="truncate">Tải Video Test</span>
+            </>
+          )}
         </button>
 
         {/* Start / Stop Main Action Button */}
@@ -55,19 +97,19 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
           <button
             type="button"
             onClick={onStart}
-            className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] shadow-lg shadow-blue-600/30 transition-all select-none"
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] shadow-lg shadow-blue-600/30 transition-all select-none"
           >
-            <Play size={18} fill="currentColor" />
-            <span>Bắt Đầu Giám Sát</span>
+            <Play size={16} fill="currentColor" />
+            <span>Bật Camera</span>
           </button>
         ) : (
           <button
             type="button"
             onClick={onStop}
-            className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-[0.98] shadow-lg shadow-rose-600/30 transition-all select-none"
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-[0.98] shadow-lg shadow-rose-600/30 transition-all select-none"
           >
-            <Square size={18} fill="currentColor" />
-            <span>Dừng Giám Sát</span>
+            <Square size={16} fill="currentColor" />
+            <span>Dừng {isVideoFile ? 'Video' : 'Camera'}</span>
           </button>
         )}
       </div>
@@ -104,7 +146,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
         </div>
 
         {/* Right: Camera Eye Selector (If multi-camera) */}
-        {availableDevices.length > 2 && (
+        {!isVideoFile && availableDevices.length > 2 && (
           <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <Video size={13} className="text-blue-400 shrink-0" />
             <select
@@ -124,7 +166,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
         {/* Status Hint */}
         <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
           <Zap size={12} className="text-emerald-400" />
-          <span>YOLOv8 + SolvePnP 3D Euler</span>
+          <span>YOLOv8n + SolvePnP + v2 Suspicion</span>
         </div>
       </div>
     </div>

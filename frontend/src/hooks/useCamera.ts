@@ -18,6 +18,7 @@ export function useCamera() {
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [isVideoFile, setIsVideoFile] = useState<boolean>(false);
   const [facingMode, setFacingMode] = useState<CameraFacingMode>('environment');
   const [activeDeviceId, setActiveDeviceId] = useState<string>('');
   const [activeCameraLabel, setActiveCameraLabel] = useState<string>('Camera Sau');
@@ -84,9 +85,14 @@ export function useCamera() {
       streamRef.current = null;
     }
     if (videoRef.current) {
+      if (videoRef.current.src) {
+        URL.revokeObjectURL(videoRef.current.src);
+        videoRef.current.removeAttribute('src');
+      }
       videoRef.current.srcObject = null;
     }
     setIsStreaming(false);
+    setIsVideoFile(false);
     setVideoDimensions({ width: 0, height: 0 });
   }, []);
 
@@ -226,6 +232,44 @@ export function useCamera() {
     }
   }, [facingMode, refreshDevices]);
 
+  // Start playing a local video file (MP4/WebM) as camera stream
+  const startVideoFile = useCallback(async (file: File) => {
+    stopCamera();
+    setError(null);
+    if (!videoRef.current) return false;
+
+    try {
+      const url = URL.createObjectURL(file);
+      videoRef.current.srcObject = null;
+      videoRef.current.src = url;
+      videoRef.current.loop = true;
+      videoRef.current.muted = true;
+      videoRef.current.setAttribute('playsinline', 'true');
+
+      await new Promise<void>((resolve) => {
+        if (!videoRef.current) return resolve();
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            setVideoDimensions({
+              width: videoRef.current.videoWidth || 1280,
+              height: videoRef.current.videoHeight || 720
+            });
+          }
+          resolve();
+        };
+      });
+
+      await videoRef.current.play();
+      setIsStreaming(true);
+      setIsVideoFile(true);
+      setActiveCameraLabel(`Tệp Video: ${file.name}`);
+      return true;
+    } catch (err: unknown) {
+      console.error('Không thể phát video file:', err);
+      return false;
+    }
+  }, [stopCamera]);
+
   // Toggle Front / Back Camera
   const toggleCamera = useCallback(async () => {
     const nextMode: CameraFacingMode = facingMode === 'environment' ? 'user' : 'environment';
@@ -290,6 +334,8 @@ export function useCamera() {
     availableDevices,
     error,
     videoDimensions,
+    isVideoFile,
+    startVideoFile,
     startCamera,
     stopCamera,
     toggleCamera,

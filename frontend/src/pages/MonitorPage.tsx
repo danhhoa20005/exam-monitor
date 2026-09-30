@@ -22,6 +22,8 @@ export const MonitorPage: React.FC = () => {
     availableDevices,
     error: cameraError,
     videoDimensions,
+    isVideoFile,
+    startVideoFile,
     startCamera,
     stopCamera,
     toggleCamera,
@@ -108,6 +110,8 @@ export const MonitorPage: React.FC = () => {
             {/* Mobile & Tablet Control Buttons */}
             <CameraControls
               isStreaming={isStreaming}
+              isVideoFile={isVideoFile}
+              onSelectVideoFile={startVideoFile}
               facingMode={facingMode}
               activeDeviceId={activeDeviceId}
               availableDevices={availableDevices}
@@ -126,6 +130,9 @@ export const MonitorPage: React.FC = () => {
                 <span>Quy Trình Giám Sát AI Realtime (Model `best.pt`):</span>
               </div>
               <ul className="list-disc list-inside space-y-1.5 text-[11px] text-slate-400 leading-relaxed">
+                <li>
+                  Bấm nút <strong className="text-indigo-400">"Tải Video Test"</strong> để kiểm tra thử nghiệm video có sẵn từ máy tính hoặc điện thoại.
+                </li>
                 <li>
                   Mặc định hệ thống sử dụng <strong className="text-slate-200">Camera Sau</strong> để bao quát rộng, hoặc bấm <strong className="text-blue-300">"Chuyển: Cam Trước"</strong> khi giám sát góc cá nhân.
                 </li>
