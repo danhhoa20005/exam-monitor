@@ -53,3 +53,8 @@ model/
 *.log
 backend/*.log
 
+
+**/node_modules/
+**/.venv/
+backend/.venv
+frontend/node_modules
