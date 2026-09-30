@@ -146,8 +146,6 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let scanlineOffset = 0;
-
     const renderLoop = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -161,7 +159,6 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, rect.width, rect.height);
 
-      scanlineOffset = (scanlineOffset + 1.2) % 100;
       const smoothMap = smoothTracksRef.current;
       const now = performance.now();
 
@@ -200,14 +197,14 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
         // 1. Sleek Gradient Fill inside Bounding Box
         const grad = ctx.createLinearGradient(x, y, x, y + h);
         if (isReview) {
-          grad.addColorStop(0, 'rgba(239, 68, 68, 0.22)');
-          grad.addColorStop(1, 'rgba(239, 68, 68, 0.04)');
+          grad.addColorStop(0, 'rgba(239, 68, 68, 0.12)');
+          grad.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
         } else if (isObserving) {
-          grad.addColorStop(0, 'rgba(245, 158, 11, 0.18)');
-          grad.addColorStop(1, 'rgba(245, 158, 11, 0.03)');
+          grad.addColorStop(0, 'rgba(245, 158, 11, 0.10)');
+          grad.addColorStop(1, 'rgba(245, 158, 11, 0.01)');
         } else {
-          grad.addColorStop(0, 'rgba(16, 185, 129, 0.14)');
-          grad.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+          grad.addColorStop(0, 'rgba(16, 185, 129, 0.08)');
+          grad.addColorStop(1, 'rgba(16, 185, 129, 0.01)');
         }
         ctx.fillStyle = grad;
         ctx.beginPath();

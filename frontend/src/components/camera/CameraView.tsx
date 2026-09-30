@@ -113,10 +113,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
       <div className="absolute bottom-2.5 left-2.5 w-5 h-5 border-b-2 border-l-2 border-cyan-400/80 rounded-bl-lg pointer-events-none z-20" />
       <div className="absolute bottom-2.5 right-2.5 w-5 h-5 border-b-2 border-r-2 border-cyan-400/80 rounded-br-lg pointer-events-none z-20" />
 
-      {/* Subtle Scanlines effect overlay */}
-      {isStreaming && (
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px] pointer-events-none z-10 opacity-30" />
-      )}
 
       {/* Active Violation Alert Banner (Top Center) */}
       {reviewTracks.length > 0 && (
