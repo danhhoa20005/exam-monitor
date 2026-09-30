@@ -22,8 +22,8 @@ export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
   apiUrl: getEffectiveApiBaseUrl(),
   wsUrl: `${WS_BASE_URL || getEffectiveApiBaseUrl().replace(/^http/, 'ws')}/ws/sessions/session-01`,
   sessionId: '',
-  targetFps: 5,
-  jpegQuality: 0.75,
+  targetFps: 10,
+  jpegQuality: 0.70,
   targetWidth: 640,
   targetHeight: 480,
   authTicket: ''

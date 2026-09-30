@@ -1,5 +1,6 @@
 import React from 'react';
 import { SocketConnectionState } from '../../types/monitoring';
+import { Activity } from 'lucide-react';
 
 interface ConnectionStatusProps {
   status: SocketConnectionState;
@@ -14,33 +15,43 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
 }) => {
   let label = 'Chưa kết nối AI';
   let dotColor = 'bg-slate-500';
-  let badgeBorder = 'border-slate-700/60 bg-slate-900/60 text-slate-300';
+  let badgeBorder = 'border-slate-800 bg-slate-900/80 text-slate-300';
 
   if (status === 'connected') {
-    label = 'Đã kết nối AI Model';
-    dotColor = 'bg-emerald-400 shadow-sm shadow-emerald-400/50';
-    badgeBorder = 'border-emerald-500/30 bg-emerald-950/40 text-emerald-300';
+    label = 'Live AI Connected';
+    dotColor = 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]';
+    badgeBorder = 'border-emerald-500/40 bg-emerald-950/40 text-emerald-300 shadow-sm shadow-emerald-950';
   } else if (status === 'connecting' || status === 'reconnecting') {
-    label = status === 'connecting' ? 'Đang xác thực AI Model...' : 'Đang kết nối lại...';
-    dotColor = 'bg-amber-400 animate-pulse';
-    badgeBorder = 'border-amber-500/30 bg-amber-950/40 text-amber-300';
+    label = status === 'connecting' ? 'Đang kết nối AI...' : 'Đang thử lại...';
+    dotColor = 'bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]';
+    badgeBorder = 'border-amber-500/40 bg-amber-950/40 text-amber-300';
   } else if (status === 'error') {
-    label = 'Lỗi kết nối Server';
-    dotColor = 'bg-rose-400';
-    badgeBorder = 'border-rose-500/30 bg-rose-950/40 text-rose-300';
+    label = 'Lỗi kết nối';
+    dotColor = 'bg-rose-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]';
+    badgeBorder = 'border-rose-500/40 bg-rose-950/40 text-rose-300';
   }
 
+  const fpsColor = fps >= 10 ? 'text-emerald-400' : fps >= 5 ? 'text-cyan-400' : 'text-amber-400';
+
   return (
-    <div className="flex items-center gap-2">
-      <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium border backdrop-blur-md ${badgeBorder}`}>
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      {/* Main Connection Status Pill */}
+      <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold border backdrop-blur-md transition-colors ${badgeBorder}`}>
         <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-        <span>{label}</span>
+        <span className="truncate max-w-[110px] sm:max-w-none">{label}</span>
       </div>
 
-      {status === 'connected' && fps > 0 && (
-        <span className="hidden sm:inline-block text-[11px] font-mono text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-md border border-slate-700/40">
-          {fps} FPS {latencyMs > 0 ? `• ${latencyMs}ms` : ''}
-        </span>
+      {/* Live Telemetry Pill: FPS & Latency (Visible on all devices) */}
+      {status === 'connected' && (
+        <div className="inline-flex items-center gap-1 text-[11px] font-mono font-bold bg-slate-900/90 border border-slate-700/80 px-2 py-0.5 rounded-lg text-slate-300 shadow-inner">
+          <Activity size={11} className={`${fpsColor} shrink-0 animate-pulse`} />
+          <span className={fpsColor}>{fps > 0 ? fps : '--'} FPS</span>
+          {latencyMs > 0 && (
+            <span className="hidden xs:inline text-[10px] text-slate-400">
+              • {latencyMs}ms
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

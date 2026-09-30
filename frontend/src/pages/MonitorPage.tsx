@@ -111,6 +111,8 @@ export const MonitorPage: React.FC = () => {
               facingMode={facingMode}
               activeDeviceId={activeDeviceId}
               availableDevices={availableDevices}
+              targetFps={modelConfig.targetFps || 10}
+              onUpdateFps={(fps) => updateModelConfig({ targetFps: fps })}
               onStart={handleStart}
               onStop={handleStop}
               onToggleCamera={toggleCamera}

@@ -254,8 +254,8 @@ export function useCamera() {
       offscreenCanvasRef.current = document.createElement('canvas');
     }
     const canvas = offscreenCanvasRef.current;
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
+    if (canvas.width !== targetWidth) canvas.width = targetWidth;
+    if (canvas.height !== targetHeight) canvas.height = targetHeight;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;

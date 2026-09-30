@@ -1,5 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Maximize2, Minimize2, Eye, EyeOff, RotateCcw } from 'lucide-react';
+import { 
+  Camera, 
+  AlertCircle, 
+  RefreshCw, 
+  ZoomIn, 
+  ZoomOut, 
+  Maximize2, 
+  Minimize2, 
+  Eye, 
+  EyeOff, 
+  RotateCcw,
+  AlertTriangle
+} from 'lucide-react';
 import { TrackResult, CameraFacingMode } from '../../types/monitoring';
 import { TrackOverlay } from './TrackOverlay';
 import { CameraError } from '../../hooks/useCamera';
@@ -31,6 +43,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
   const [showOverlay, setShowOverlay] = useState<boolean>(true);
 
   const isFrontCamera = facingMode === 'user';
+  const reviewTracks = tracks.filter(t => t.status === 'REVIEW');
 
   // Handle Fullscreen toggle
   const handleToggleFullscreen = useCallback(async () => {
@@ -88,12 +101,31 @@ export const CameraView: React.FC<CameraViewProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/90 shadow-2xl flex items-center justify-center select-none transition-all ${
+      className={`relative w-full bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center select-none transition-all ${
         isFullscreen
           ? 'fixed inset-0 z-50 rounded-none w-screen h-screen border-none'
           : 'aspect-[4/3] sm:aspect-[16/10]'
       }`}
     >
+      {/* 4 Cyberpunk Reticle Corners */}
+      <div className="absolute top-2.5 left-2.5 w-5 h-5 border-t-2 border-l-2 border-cyan-400/80 rounded-tl-lg pointer-events-none z-20" />
+      <div className="absolute top-2.5 right-2.5 w-5 h-5 border-t-2 border-r-2 border-cyan-400/80 rounded-tr-lg pointer-events-none z-20" />
+      <div className="absolute bottom-2.5 left-2.5 w-5 h-5 border-b-2 border-l-2 border-cyan-400/80 rounded-bl-lg pointer-events-none z-20" />
+      <div className="absolute bottom-2.5 right-2.5 w-5 h-5 border-b-2 border-r-2 border-cyan-400/80 rounded-br-lg pointer-events-none z-20" />
+
+      {/* Subtle Scanlines effect overlay */}
+      {isStreaming && (
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px] pointer-events-none z-10 opacity-30" />
+      )}
+
+      {/* Active Violation Alert Banner (Top Center) */}
+      {reviewTracks.length > 0 && (
+        <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-600/90 border border-rose-400 text-white text-xs font-bold shadow-lg shadow-rose-950/80 backdrop-blur-md animate-bounce">
+          <AlertTriangle size={15} className="animate-spin" />
+          <span>PHÁT HIỆN {reviewTracks.length} THÍ SINH NGHI VẤN VI PHẠM</span>
+        </div>
+      )}
+
       {/* Zoomable Video & Canvas Container */}
       <div 
         className="w-full h-full relative flex items-center justify-center overflow-hidden"
@@ -115,7 +147,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
           style={{ display: isStreaming ? 'block' : 'none' }}
         />
 
-        {/* Canvas Bounding Box & Status Overlay (Toggled via showOverlay) */}
+        {/* 60 FPS Smooth Interpolated Canvas Bounding Box & Status Overlay */}
         {isStreaming && showOverlay && (
           <TrackOverlay
             tracks={tracks}
@@ -127,23 +159,23 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
       {/* Camera Live Status Badge (Top-Left HUD) */}
       {isStreaming && (
-        <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 sm:gap-2 z-20 pointer-events-none">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/85 border border-slate-700/80 text-[11px] font-semibold text-slate-200 backdrop-blur-md shadow-lg">
+        <div className="absolute top-3 left-4 flex flex-wrap items-center gap-1.5 sm:gap-2 z-20 pointer-events-none">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 text-[11px] font-semibold text-slate-200 backdrop-blur-md shadow-lg">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-sm shadow-rose-500" />
-            <span className="truncate max-w-[180px] sm:max-w-[280px]">
-              LIVE • {activeCameraLabel}
+            <span className="truncate max-w-[160px] sm:max-w-[260px]">
+              {activeCameraLabel}
             </span>
           </div>
 
           {videoDimensions.width > 0 && (
-            <span className="hidden sm:inline-block px-2 py-1 rounded-md bg-slate-900/80 border border-slate-800 text-[10px] font-mono text-slate-300 backdrop-blur-md">
-              {videoDimensions.width} × {videoDimensions.height}
+            <span className="hidden sm:inline-block px-2 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-[10px] font-mono text-cyan-400 backdrop-blur-md">
+              {videoDimensions.width}×{videoDimensions.height}
             </span>
           )}
 
           {zoomLevel > 1.0 && (
-            <span className="px-2 py-1 rounded-md bg-blue-950/90 border border-blue-700/80 text-[10px] font-mono font-bold text-blue-300 backdrop-blur-md shadow-sm">
-              Zoom: {zoomLevel.toFixed(2)}×
+            <span className="px-2 py-1 rounded-lg bg-blue-950/90 border border-blue-700/80 text-[10px] font-mono font-bold text-blue-300 backdrop-blur-md shadow-sm">
+              {zoomLevel.toFixed(2)}×
             </span>
           )}
         </div>
@@ -151,9 +183,9 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
       {/* Interactive Quick Toolbar (Top-Right HUD: Zoom, Fullscreen, AI Box Toggle) */}
       {isStreaming && (
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 z-20">
+        <div className="absolute top-3 right-4 flex items-center gap-1.5 z-20">
           {/* Zoom Controls */}
-          <div className="flex items-center bg-slate-900/85 border border-slate-700/80 rounded-xl p-0.5 backdrop-blur-md shadow-lg text-slate-200">
+          <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl p-0.5 backdrop-blur-md shadow-lg text-slate-200">
             <button
               type="button"
               onClick={handleZoomOut}
@@ -168,7 +200,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               <button
                 type="button"
                 onClick={handleResetZoom}
-                className="px-1.5 text-[10px] font-mono font-bold text-blue-400 hover:text-blue-300 flex items-center gap-0.5 transition-colors"
+                className="px-1.5 text-[10px] font-mono font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5 transition-colors"
                 title="Đặt lại mức zoom 1.0x"
               >
                 <span>{zoomLevel.toFixed(1)}x</span>
@@ -195,7 +227,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
             onClick={() => setShowOverlay(prev => !prev)}
             className={`p-2 rounded-xl border backdrop-blur-md shadow-lg text-xs font-semibold transition-all ${
               showOverlay
-                ? 'bg-slate-900/85 border-slate-700/80 text-blue-400 hover:bg-slate-800'
+                ? 'bg-slate-900/90 border-slate-700/80 text-cyan-400 hover:bg-slate-800'
                 : 'bg-rose-950/80 border-rose-700/80 text-rose-300 hover:bg-rose-900/80'
             }`}
             title={showOverlay ? 'Ẩn khung Bounding Box AI' : 'Hiện khung Bounding Box AI'}
@@ -207,7 +239,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
           <button
             type="button"
             onClick={handleToggleFullscreen}
-            className="p-2 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-slate-700/80 text-slate-200 backdrop-blur-md shadow-lg transition-colors"
+            className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 backdrop-blur-md shadow-lg transition-colors"
             title={isFullscreen ? 'Thu nhỏ cửa sổ' : 'Phóng to toàn màn hình'}
           >
             {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
@@ -217,16 +249,17 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
       {/* Idle / Unstarted Camera Placeholder */}
       {!isStreaming && !error && (
-        <div className="flex flex-col items-center justify-center gap-3.5 p-6 text-center text-slate-400 max-w-sm">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900/90 border border-slate-700/80 flex items-center justify-center text-blue-400 shadow-inner">
-            <Camera size={28} />
+        <div className="flex flex-col items-center justify-center gap-3.5 p-6 text-center text-slate-400 max-w-sm z-10">
+          <div className="w-16 h-16 rounded-3xl bg-slate-900/90 border border-slate-700/80 flex items-center justify-center text-cyan-400 shadow-2xl relative">
+            <Camera size={30} />
+            <span className="w-3 h-3 rounded-full bg-cyan-400 animate-ping absolute -top-1 -right-1" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-100">
-              Camera Chưa Kích Hoạt
+            <h3 className="text-base font-bold text-slate-100 flex items-center justify-center gap-1.5">
+              <span>Hệ Thống Sẵn Sàng Giám Sát</span>
             </h3>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-              Mặc định ưu tiên <strong>Camera sau</strong> của điện thoại để bao quát phòng thi. Bạn có thể đổi sang <strong>Camera trước</strong>, phóng to hoặc toàn màn hình bất kỳ lúc nào.
+              Bấm <strong className="text-blue-400">"Bắt Đầu Giám Sát"</strong> bên dưới. AI sẽ tự động lấy mốc 20 mẫu tư thế và theo dõi theo thời gian thực.
             </p>
           </div>
         </div>
@@ -234,7 +267,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
       {/* Camera Error Message Banner */}
       {error && (
-        <div className="absolute inset-4 m-auto h-fit bg-rose-950/95 border border-rose-700 text-rose-200 text-xs rounded-2xl p-4 flex flex-col gap-3 backdrop-blur-md z-20 shadow-2xl max-w-md">
+        <div className="absolute inset-4 m-auto h-fit bg-rose-950/95 border border-rose-700 text-rose-200 text-xs rounded-2xl p-4 flex flex-col gap-3 backdrop-blur-md z-30 shadow-2xl max-w-md">
           <div className="flex items-start gap-2.5">
             <AlertCircle size={18} className="text-rose-400 shrink-0 mt-0.5" />
             <div className="flex-1">
