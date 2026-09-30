@@ -93,7 +93,8 @@ class PoseBehaviorEngine:
         track_id: int,
         frame_id: int,
         captured_at_ms: int,
-        detection_conf: float
+        detection_conf: float,
+        activity: str = "attentive"
     ) -> TrackResult:
         """
         Extract ROI, run pose estimation, calculate yaw/nose drop, and update state machine.
@@ -116,7 +117,7 @@ class PoseBehaviorEngine:
         state = self.get_or_create_state(track_id)
 
         if crop_w < 20 or crop_h < 20:
-            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state)
+            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state, activity)
 
         # 2. Extract Keypoints via MediaPipe or Geometric Model
         keypoints_2d, nose_y_full, is_valid = self._extract_pose_keypoints(
@@ -124,12 +125,12 @@ class PoseBehaviorEngine:
         )
 
         if not is_valid or keypoints_2d is None:
-            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state)
+            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state, activity)
 
         # 3. Estimate Head Orientation via SolvePnP
         pnp_result = estimate_head_pose_pnp(keypoints_2d, w_frame, h_frame)
         if pnp_result is None:
-            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state)
+            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state, activity)
 
         yaw_deg, pitch_deg, _ = pnp_result
 
@@ -164,7 +165,8 @@ class PoseBehaviorEngine:
                 nose_drop_ratio=0.0,
                 turning_duration_ms=0,
                 bending_duration_ms=0,
-                progress_percent=round((sample_count / settings.CALIBRATION_SAMPLES) * 100.0, 1)
+                progress_percent=round((sample_count / settings.CALIBRATION_SAMPLES) * 100.0, 1),
+                activity=activity
             )
 
         # 6. Phase 2: Posture Evaluation (Calibrated)
@@ -226,7 +228,8 @@ class PoseBehaviorEngine:
             nose_drop_ratio=round(nose_drop_ratio, 3),
             turning_duration_ms=state.turning_duration_ms,
             bending_duration_ms=state.bending_duration_ms,
-            progress_percent=progress
+            progress_percent=progress,
+            activity=activity
         )
 
     def _extract_pose_keypoints(
@@ -318,7 +321,8 @@ class PoseBehaviorEngine:
         bbox_xyxy_norm: Tuple[float, float, float, float],
         detection_conf: float,
         frame_id: int,
-        state: CandidateTrackState
+        state: CandidateTrackState,
+        activity: str = "attentive"
     ) -> TrackResult:
         """Construct a POSE_UNAVAILABLE result."""
         # Insufficient data breaks continuity
@@ -336,5 +340,6 @@ class PoseBehaviorEngine:
             nose_drop_ratio=0.0,
             turning_duration_ms=0,
             bending_duration_ms=0,
-            progress_percent=0.0
+            progress_percent=0.0,
+            activity=activity
         )

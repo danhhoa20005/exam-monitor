@@ -25,6 +25,7 @@ interface SmoothTrackState {
   reasons: string[];
   calibrationSamples: number;
   turningDurationMs: number;
+  activity?: string;
   opacity: number;
   lastUpdatedMs: number;
 }
@@ -112,6 +113,7 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
         existing.reasons = track.reasons;
         existing.calibrationSamples = track.calibration_samples;
         existing.turningDurationMs = track.turning_duration_ms || 0;
+        existing.activity = track.activity || "attentive";
         existing.lastUpdatedMs = now;
       } else {
         smoothTracksRef.current.set(track.track_id, {
@@ -131,6 +133,7 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
           reasons: track.reasons,
           calibrationSamples: track.calibration_samples,
           turningDurationMs: track.turning_duration_ms || 0,
+          activity: track.activity || "attentive",
           opacity: 0.1,
           lastUpdatedMs: now
         });
@@ -235,7 +238,11 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
             : 'NGHI VẤN VI PHẠM';
         }
 
-        const tagText = `ID ${id < 10 ? '0' : ''}${id}  •  ${statusText}`;
+        let actLabel = '';
+        if (st.activity === 'hand_raised') actLabel = ' • ✋ Giơ tay';
+        else if (st.activity === 'inattentive') actLabel = ' • ⚠️ Mất tập trung';
+        
+        const tagText = `ID ${id < 10 ? '0' : ''}${id}  •  ${statusText}${actLabel}`;
         ctx.font = '700 11px Inter, system-ui, sans-serif';
         const textMetrics = ctx.measureText(tagText);
         const tagH = 22;

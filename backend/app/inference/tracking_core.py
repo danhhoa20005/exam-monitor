@@ -93,7 +93,7 @@ class SessionInferencePipeline:
 
         # 2. YOLOv8 Detection & ByteTrack
         t_yolo_start = time.perf_counter()
-        detections: List[Tuple[int, Tuple[float, float, float, float], float]] = []
+        detections: List[Tuple[int, Tuple[float, float, float, float], float, str]] = []
 
         if self.yolo_model is not None:
             try:
@@ -118,29 +118,28 @@ class SessionInferencePipeline:
                         normalized_name = str(cls_name).strip().lower().replace("-", "_").replace(" ", "_")
                         is_single_class = len(names) == 1
                         is_person_class = normalized_name in {
-                            "person", "student", "student_v1", "candidate", "human", "ผู้เรียน"
-                        }
+                            "person", "student", "student_v1", "candidate", "human", "attentive", "inattentive", "hand_raised"
+                        } or cls_id in (0, 1, 2)
 
                         if is_single_class or is_person_class or cls_id == 0:
                             track_id = int(box.id[0].item()) if box.id is not None else 1
                             conf = float(box.conf[0].item())
                             xyxy = box.xyxy[0].tolist()
                             
-                            # Normalize coordinates
                             norm_bbox = (
                                 xyxy[0] / float(w_frame),
                                 xyxy[1] / float(h_frame),
                                 xyxy[2] / float(w_frame),
                                 xyxy[3] / float(h_frame)
                             )
-                            detections.append((track_id, norm_bbox, conf))
+                            detections.append((track_id, norm_bbox, conf, normalized_name))
             except Exception as e:
                 print(f"[WARN] YOLO tracking error: {e}")
         else:
             # Geometric/Face Fallback detection if PyTorch/YOLO not yet loaded
             # Detects central student ROI
             center_bbox = (0.25, 0.20, 0.75, 0.90)
-            detections.append((1, center_bbox, 0.90))
+            detections.append((1, center_bbox, 0.90, "attentive"))
 
         t_yolo_end = time.perf_counter()
         yolo_ms = int((t_yolo_end - t_yolo_start) * 1000)
@@ -151,14 +150,15 @@ class SessionInferencePipeline:
         active_track_ids = [d[0] for d in detections]
         self.pose_engine.remove_lost_tracks(active_track_ids)
 
-        for track_id, bbox_norm, conf in detections:
+        for track_id, bbox_norm, conf, act_name in detections:
             res = self.pose_engine.process_student_roi(
                 full_frame_bgr=frame_bgr,
                 bbox_xyxy_norm=bbox_norm,
                 track_id=track_id,
                 frame_id=frame_id,
                 captured_at_ms=captured_at_ms,
-                detection_conf=conf
+                detection_conf=conf,
+                activity=act_name if act_name in ["attentive", "hand_raised", "inattentive"] else "attentive"
             )
             track_results.append(res)
 

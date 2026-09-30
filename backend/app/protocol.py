@@ -50,6 +50,7 @@ class TrackResult(BaseModel):
     turning_duration_ms: int
     bending_duration_ms: int
     progress_percent: Optional[float] = 0.0
+    activity: Optional[str] = "attentive"
 
 class FrameResult(BaseModel):
     type: Literal["result"] = "result"

@@ -21,6 +21,7 @@ export interface TrackResult {
   nose_drop_ratio?: number;
   turning_duration_ms?: number;
   bending_duration_ms?: number;
+  activity?: "attentive" | "hand_raised" | "inattentive" | string;
 }
 
 export interface MonitoringResult {

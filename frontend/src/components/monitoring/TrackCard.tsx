@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrackResult } from '../../types/monitoring';
 import { STATUS_STYLES, STATUS_LABELS } from '../../constants/config';
-import { RotateCw, ArrowDown, User } from 'lucide-react';
+import { RotateCw, ArrowDown, User, Hand, Eye, AlertTriangle } from 'lucide-react';
 
 interface TrackCardProps {
   track: TrackResult;
@@ -24,12 +24,16 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track }) => {
     statusDetail = `Nghi vấn (${s}s)`;
   }
 
+  const activity = track.activity || 'attentive';
+
   return (
     <div 
       className={`p-3.5 rounded-xl border transition-all duration-200 ${
-        isReview 
+        isReview || activity === 'inattentive'
           ? 'bg-rose-950/30 border-rose-600/60 shadow-sm shadow-rose-950' 
-          : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
+          : activity === 'hand_raised'
+            ? 'bg-blue-950/30 border-blue-500/60 shadow-sm shadow-blue-950'
+            : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
       }`}
     >
       {/* Top row: ID & Status Badge */}
@@ -46,6 +50,28 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track }) => {
         <span className={`px-2.5 py-1 rounded-md text-[11px] font-medium border ${style.badgeBg} ${style.badgeText} ${style.borderColor}`}>
           {statusDetail}
         </span>
+      </div>
+
+      {/* Activity Classification Badge (from YOLOv8n) */}
+      <div className="mt-2.5 flex items-center gap-2">
+        {activity === 'hand_raised' && (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40 animate-pulse">
+            <Hand size={12} className="text-sky-400" />
+            Giơ tay (Hand Raised)
+          </span>
+        )}
+        {activity === 'inattentive' && (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+            <AlertTriangle size={12} className="text-rose-400" />
+            Mất tập trung (Inattentive)
+          </span>
+        )}
+        {activity === 'attentive' && (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            <Eye size={12} className="text-emerald-400" />
+            Tập trung (Attentive)
+          </span>
+        )}
       </div>
 
       {/* Metric details row (if calibrated) */}
