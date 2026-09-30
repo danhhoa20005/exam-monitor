@@ -103,10 +103,10 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-200 block">
-                      YOLOv8m (`best.pt`) + MediaPipe Pose
+                      YOLOv8n (`best.pt`) + MediaPipe Pose
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      Nhận diện thí sinh & theo dõi góc lệch đầu Yaw (ΔYaw)
+                      Nhận diện thí sinh, giơ tay & theo dõi góc lệch đầu 3D
                     </span>
                   </div>
                 </div>
@@ -149,11 +149,45 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                       wsUrl: newApi ? `${wsBase}/ws/sessions/${prev.sessionId || 'session-01'}` : prev.wsUrl
                     }));
                   }}
-                  placeholder="https://visionguard-ai-backend.onrender.com hoặc http://127.0.0.1:8000"
+                  placeholder="https://...trycloudflare.com hoặc http://localhost:8000"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Hệ thống tự tạo phiên và cấp vé WebSocket. Khi deploy riêng lẻ (Vercel + Render/Tunnel), dán domain backend vào đây.
+
+                {/* 1-Click Fast Presets */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tunnelUrl = 'https://wendy-recordings-clean-industries.trycloudflare.com';
+                      const wsBase = tunnelUrl.replace(/^http/, 'ws');
+                      setFormState(prev => ({
+                        ...prev,
+                        apiUrl: tunnelUrl,
+                        wsUrl: `${wsBase}/ws/sessions/${prev.sessionId || 'session-01'}`
+                      }));
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-700/60 text-indigo-300 text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  >
+                    <span>⚡ Cloudflare Tunnel (Điện thoại / Vercel)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const localUrl = 'http://localhost:8000';
+                      setFormState(prev => ({
+                        ...prev,
+                        apiUrl: localUrl,
+                        wsUrl: `ws://localhost:8000/ws/sessions/${prev.sessionId || 'session-01'}`
+                      }));
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  >
+                    <span>💻 Localhost (:8000)</span>
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  Bấm nút chọn nhanh bên trên hoặc nhập link backend của bạn. Frontend sẽ tự kết nối và xin vé WebSocket.
                 </p>
               </div>
 

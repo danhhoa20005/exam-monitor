@@ -101,10 +101,10 @@ export const CameraView: React.FC<CameraViewProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center select-none transition-all ${
+      className={`relative w-full bg-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center select-none transition-all ${
         isFullscreen
           ? 'fixed inset-0 z-50 rounded-none w-screen h-screen border-none'
-          : 'aspect-[4/3] sm:aspect-[16/10]'
+          : 'aspect-[4/3] sm:aspect-[16/10] max-h-[65vh] sm:max-h-none'
       }`}
     >
 
@@ -247,11 +247,11 @@ export const CameraView: React.FC<CameraViewProps> = ({
             <span className="w-3 h-3 rounded-full bg-cyan-400 animate-ping absolute -top-1 -right-1" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-100 flex items-center justify-center gap-1.5">
+            <h3 className="text-sm sm:text-base font-bold text-slate-100 flex items-center justify-center gap-1.5">
               <span>Hệ Thống Sẵn Sàng Giám Sát</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-              Bấm <strong className="text-blue-400">"Bắt Đầu Giám Sát"</strong> bên dưới. AI sẽ tự động lấy mốc 20 mẫu tư thế và theo dõi theo thời gian thực.
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-1.5 leading-relaxed">
+              Bấm <strong className="text-blue-400">"Bật Camera"</strong> hoặc <strong className="text-indigo-400">"Tải Video Test"</strong> bên dưới. AI sẽ tự động lấy mẫu tư thế và theo dõi thời gian thực.
             </p>
           </div>
         </div>

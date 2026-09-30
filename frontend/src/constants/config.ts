@@ -21,13 +21,21 @@ export function setStoredApiUrl(url: string): void {
   }
 }
 
+export const CLOUDFLARE_TUNNEL_URL = 'https://wendy-recordings-clean-industries.trycloudflare.com';
+export const LOCAL_BACKEND_URL = 'http://localhost:8000';
+
 export function getEffectiveApiBaseUrl(): string {
   const saved = getStoredApiUrl();
   if (saved) return saved;
   if (API_BASE_URL) return API_BASE_URL;
   if (import.meta.env.DEV) return 'http://127.0.0.1:8000';
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin.replace(/\/+$/, '');
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.hostname.includes('vercel.app')) {
+      return CLOUDFLARE_TUNNEL_URL;
+    }
+    if (window.location.origin && window.location.port !== '5173') {
+      return window.location.origin.replace(/\/+$/, '');
+    }
   }
   return 'http://127.0.0.1:8000';
 }

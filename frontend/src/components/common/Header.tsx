@@ -31,26 +31,26 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Left: Brand / Logo */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
-            <ShieldAlert size={18} />
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 min-w-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+            <ShieldAlert size={16} className="sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div>
-            <h1 className="text-xs sm:text-base font-bold text-slate-100 tracking-tight leading-tight flex items-center gap-1.5">
-              <span>Giám Sát Tư Thế</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 flex items-center gap-1">
-                <Radio size={10} className="animate-pulse text-emerald-400" />
-                <span>AI Live Model</span>
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm md:text-base font-bold text-slate-100 tracking-tight leading-tight flex items-center gap-1 sm:gap-1.5">
+              <span className="truncate">Giám Sát Tư Thế</span>
+              <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 flex items-center gap-1 shrink-0">
+                <Radio size={9} className="animate-pulse text-emerald-400" />
+                <span>Live AI</span>
               </span>
             </h1>
-            <p className="hidden sm:block text-[10px] text-slate-400 font-medium">
-              YOLOv8m (`best.pt`) • ByteTrack • MediaPipe Pose
+            <p className="hidden sm:block text-[10px] text-slate-400 font-medium truncate font-mono">
+              YOLOv8n (best.pt) • ByteTrack • SolvePnP v2
             </p>
           </div>
         </div>
 
-        {/* Center: Live Connection State & FPS */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Center/Right: Live Connection State & Settings */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <ConnectionStatus 
             status={connectionState} 
             fps={fps} 
@@ -62,11 +62,11 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenConfig}
-            className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/80 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+            className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/80 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm active:scale-95"
             title="Cài đặt kết nối WebSocket AI Model Backend"
           >
-            <Settings2 size={15} className="text-blue-400" />
-            <span className="hidden sm:inline">Cài Đặt Model</span>
+            <Settings2 size={14} className="text-blue-400 shrink-0" />
+            <span className="hidden md:inline">Cài Đặt Model</span>
           </button>
         </div>
 
