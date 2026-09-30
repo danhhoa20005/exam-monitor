@@ -9,7 +9,13 @@ pkill -f "uvicorn app.main:app" 2>/dev/null || true
 # Khởi chạy AI Backend ở chế độ ngầm (Background)
 echo "1️⃣ Đang khởi động AI Backend (YOLOv8 & MediaPipe) trên port 8000..."
 cd backend
-/Users/MAC/miniconda3/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+if command -v uvicorn &> /dev/null; then
+    uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+elif [ -f "/Users/MAC/miniconda3/bin/uvicorn" ]; then
+    /Users/MAC/miniconda3/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+else
+    python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+fi
 BACKEND_PID=$!
 cd ..
 
@@ -21,10 +27,9 @@ echo "2️⃣ Đang mở cổng kết nối Internet qua LocalTunnel..."
 echo "----------------------------------------------------------------"
 echo "📌 HƯỚNG DẪN DÀNH CHO BẠN:"
 echo "1. Đợi dòng chữ 'your url is: https://...' xuất hiện bên dưới."
-echo "2. Giữ Cmd (⌘) và click vào link đó để mở trên trình duyệt, sau đó bấm 'Click to Continue' để xác thực."
-echo "3. Copy link đó, thêm 'wss://' thay cho 'https://' và nối thêm '/ws/sessions/session-01'."
-echo "   (Ví dụ: wss://xxx.loca.lt/ws/sessions/session-01)"
-echo "4. Dán link vừa tạo vào mục Cài Đặt Model trên giao diện Vercel để AI bắt đầu hoạt động!"
+echo "2. Copy đường link 'https://...loca.lt' đó."
+echo "3. Mở web giám sát đã deploy (Vercel/Firebase), bấm icon Cài Đặt (⚙️) ở góc trên."
+echo "4. Dán link vừa copy vào ô 'Máy Chủ AI Backend' rồi bấm 'Lưu Cấu Hình' để AI kết nối ngay lập tức!"
 echo "----------------------------------------------------------------"
 
 # Chạy LocalTunnel

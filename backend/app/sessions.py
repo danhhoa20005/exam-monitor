@@ -52,6 +52,10 @@ class SessionManager:
     def get_session(self, session_id: str) -> Optional[ActiveSession]:
         return self._sessions.get(session_id)
 
+    def get_active_session(self) -> Optional[ActiveSession]:
+        """Return the single active session used by the MVP deployment."""
+        return next(iter(self._sessions.values()), None)
+
     async def close_session(self, session_id: str) -> Optional[ActiveSession]:
         async with self._lock:
             session = self._sessions.pop(session_id, None)

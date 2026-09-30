@@ -60,6 +60,7 @@ export type SocketConnectionState =
 export type CameraFacingMode = 'user' | 'environment';
 
 export interface ModelConnectionConfig {
+  apiUrl?: string;
   wsUrl: string;
   sessionId: string;
   targetFps: number;
@@ -68,3 +69,4 @@ export interface ModelConnectionConfig {
   targetHeight: number;
   authTicket: string;
 }
+

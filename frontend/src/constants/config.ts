@@ -3,6 +3,40 @@ import { TrackStatus } from '../types/monitoring';
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 export const WS_BASE_URL = (import.meta.env.VITE_WS_URL || '').replace(/\/+$/, '');
 
+export function getStoredApiUrl(): string {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('visionguard_api_base_url');
+    if (saved && saved.trim()) return saved.trim().replace(/\/+$/, '');
+  }
+  return '';
+}
+
+export function setStoredApiUrl(url: string): void {
+  if (typeof window !== 'undefined') {
+    if (!url || !url.trim()) {
+      localStorage.removeItem('visionguard_api_base_url');
+    } else {
+      localStorage.setItem('visionguard_api_base_url', url.trim().replace(/\/+$/, ''));
+    }
+  }
+}
+
+export function getEffectiveApiBaseUrl(): string {
+  const saved = getStoredApiUrl();
+  if (saved) return saved;
+  if (API_BASE_URL) return API_BASE_URL;
+  if (import.meta.env.DEV) return 'http://127.0.0.1:8000';
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, '');
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+// Local development uses the backend started by the project script. In a
+// production build served by FastAPI, keep the API on the current origin.
+export const EFFECTIVE_API_BASE_URL = getEffectiveApiBaseUrl();
+
+
 export const CALIBRATION_TOTAL_SAMPLES = 20;
 
 export const STATUS_LABELS: Record<TrackStatus, string> = {

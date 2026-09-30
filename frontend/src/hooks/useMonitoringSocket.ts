@@ -7,7 +7,11 @@ import {
   ModelConnectionConfig,
   CameraFacingMode
 } from '../types/monitoring';
-import { API_BASE_URL, WS_BASE_URL } from '../constants/config';
+import { 
+  WS_BASE_URL, 
+  getEffectiveApiBaseUrl, 
+  setStoredApiUrl 
+} from '../constants/config';
 import { 
   ClientAuthMessage, 
   ClientFrameMessage, 
@@ -15,15 +19,14 @@ import {
 } from '../types/protocol';
 
 export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
-  wsUrl: (WS_BASE_URL || API_BASE_URL.replace(/^http/, 'ws'))
-    ? `${WS_BASE_URL || API_BASE_URL.replace(/^http/, 'ws')}/ws/sessions/session-01`
-    : (import.meta.env.PROD ? '' : 'ws://127.0.0.1:8000/ws/sessions/session-01'),
-  sessionId: 'session-local-01',
+  apiUrl: getEffectiveApiBaseUrl(),
+  wsUrl: `${WS_BASE_URL || getEffectiveApiBaseUrl().replace(/^http/, 'ws')}/ws/sessions/session-01`,
+  sessionId: '',
   targetFps: 5,
   jpegQuality: 0.75,
   targetWidth: 640,
   targetHeight: 480,
-  authTicket: 'demo-ticket-2026'
+  authTicket: ''
 };
 
 export function useMonitoringSocket(isCameraStreaming: boolean) {
@@ -33,6 +36,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
   const [fps, setFps] = useState<number>(0);
   const [latencyMs, setLatencyMs] = useState<number>(0);
   const [modelConfig, setModelConfig] = useState<ModelConnectionConfig>(DEFAULT_MODEL_CONFIG);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -40,10 +44,60 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
   const fpsTimestampsRef = useRef<number[]>([]);
   const isComponentMountedRef = useRef<boolean>(true);
 
+  // Create or reconnect the server-side session.
+  const bootstrapSession = useCallback(async (targetApiUrl?: string) => {
+    const apiBase = (targetApiUrl !== undefined ? targetApiUrl : (modelConfig.apiUrl || getEffectiveApiBaseUrl())).trim().replace(/\/+$/, '');
+    if (!apiBase) {
+      setConnectionState('disconnected');
+      return;
+    }
+    setConnectionState('connecting');
+    try {
+      const response = await fetch(`${apiBase}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ camera_label: 'Webcam 01', resolution: [640, 480] }),
+      });
+      if (!response.ok) throw new Error(`Backend session creation failed (${response.status})`);
+      const session = await response.json() as {
+        session_id: string;
+        ws_ticket: string;
+        ws_url: string;
+      };
+      const wsBase = WS_BASE_URL || apiBase.replace(/^http/, 'ws');
+      const resolvedWsUrl = session.ws_url.startsWith('ws') ? session.ws_url : `${wsBase}${session.ws_url}`;
+      setModelConfig(prev => ({
+        ...prev,
+        apiUrl: apiBase,
+        sessionId: session.session_id,
+        authTicket: session.ws_ticket,
+        wsUrl: resolvedWsUrl
+      }));
+      setSessionReady(true);
+    } catch (error) {
+      if (isComponentMountedRef.current) {
+        setConnectionState('error');
+        console.error('Không thể kích hoạt AI backend:', error);
+      }
+    }
+  }, [modelConfig.apiUrl]);
+
+  useEffect(() => {
+    bootstrapSession();
+  }, []);
+
   // Update AI Model Connection Configuration
   const updateModelConfig = useCallback((newConfig: Partial<ModelConnectionConfig>) => {
     setModelConfig(prev => ({ ...prev, ...newConfig }));
-  }, []);
+    if (newConfig.apiUrl !== undefined) {
+      setStoredApiUrl(newConfig.apiUrl);
+      setSessionReady(false);
+      bootstrapSession(newConfig.apiUrl);
+    } else if (newConfig.wsUrl && (!newConfig.sessionId || newConfig.sessionId === '')) {
+      setSessionReady(true);
+    }
+  }, [bootstrapSession]);
+
 
   // Record FPS and Latency
   const recordFrameTelemetry = useCallback((processingMs: number = 0) => {
@@ -64,7 +118,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
   // REAL WEBSOCKET CLIENT (100% Live AI Model Backend)
   // -------------------------------------------------------------
   const connectWebSocket = useCallback(() => {
-    if (!isComponentMountedRef.current) return;
+    if (!isComponentMountedRef.current || !sessionReady) return;
 
     // Clean up existing socket before creating new one
     if (wsRef.current) {
@@ -79,7 +133,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     const wsUrl = modelConfig.wsUrl;
     if (!wsUrl) {
       setConnectionState('error');
-      console.error('AI backend is not configured. Set VITE_API_BASE_URL or VITE_WS_URL in Vercel.');
+      console.error('AI backend chưa sẵn sàng. Hãy chạy scripts/start_backend.sh.');
       // Stop infinite reconnect loop in Vercel if wsUrl is missing
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -181,12 +235,12 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
       setConnectionState('error');
       console.error('WebSocket connection failed:', err);
     }
-  }, [modelConfig, recordFrameTelemetry]);
+  }, [modelConfig, recordFrameTelemetry, sessionReady]);
 
   // Connect on mount and re-connect when config changes
   useEffect(() => {
     isComponentMountedRef.current = true;
-    connectWebSocket();
+    if (sessionReady) connectWebSocket();
 
     return () => {
       isComponentMountedRef.current = false;
@@ -198,7 +252,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [connectWebSocket]);
+  }, [connectWebSocket, sessionReady]);
 
   // Send Frame to WebSocket (Guarded with 1 in-flight frame limit)
   const sendFrame = useCallback((

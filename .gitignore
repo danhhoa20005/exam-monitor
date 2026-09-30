@@ -50,3 +50,6 @@ backend/models/best.pt
 backend/models/*.task
 *.zip
 model/
+*.log
+backend/*.log
+

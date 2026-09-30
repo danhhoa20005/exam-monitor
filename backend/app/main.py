@@ -64,7 +64,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://.*\.(vercel\.app|trycloudflare\.com)$",
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -135,6 +135,18 @@ async def create_session(req: SessionCreateRequest):
             ws_url=ws_url
         )
     except ValueError as e:
+        # This app intentionally supports one active inference session. Reuse
+        # it on browser refresh/HMR so the UI can auto-connect without asking
+        # the operator to paste a new URL or manually clean up an old session.
+        active_session = session_manager.get_active_session()
+        if active_session:
+            ticket = create_ws_ticket(active_session.session_id)
+            return SessionCreateResponse(
+                session_id=active_session.session_id,
+                ws_ticket=ticket,
+                created_at_ms=active_session.created_at_ms,
+                ws_url=f"/ws/sessions/{active_session.session_id}"
+            )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 @app.post("/api/sessions/{session_id}/stop", response_model=SessionStopResponse)
@@ -290,7 +302,15 @@ async def websocket_session_endpoint(websocket: WebSocket, session_id: str):
     finally:
         pass
 
-# ----------------- Serve Frontend Static Files -----------------
-dist_dir = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
-if dist_dir.exists():
+# ----------------- Serve Frontend Static Files (if available) -----------------
+dist_candidates = [
+    Path(__file__).resolve().parent.parent.parent / "frontend" / "dist",
+    Path(__file__).resolve().parent.parent / "frontend" / "dist",
+    Path(__file__).resolve().parent.parent / "dist",
+    Path("/app/frontend/dist"),
+    Path("/app/dist"),
+]
+dist_dir = next((d for d in dist_candidates if d.is_dir() and (d / "index.html").exists()), None)
+if dist_dir:
     app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")
+

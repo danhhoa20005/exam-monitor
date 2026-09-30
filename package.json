@@ -6,6 +6,7 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
     "preview": "npm --prefix frontend run preview",
-    "ai-server": "bash scripts/start-ai-server.sh"
+    "ai-server": "bash scripts/start-ai-server.sh",
+    "tunnel": "bash scripts/start_tunnel.sh"
   }
 }

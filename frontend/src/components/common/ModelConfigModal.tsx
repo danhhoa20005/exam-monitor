@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Settings, Sparkles, Server, CheckCircle2, ShieldCheck, Code2, Cpu } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Settings, Sparkles, Server, CheckCircle2, ShieldCheck, Code2, Cpu, Globe, RotateCcw } from 'lucide-react';
 import { ModelConnectionConfig, SocketConnectionState } from '../../types/monitoring';
 
 interface ModelConfigModalProps {
@@ -19,6 +19,10 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
 }) => {
   const [formState, setFormState] = useState<ModelConnectionConfig>({ ...modelConfig });
   const [activeTab, setActiveTab] = useState<'config' | 'protocol'>('config');
+
+  useEffect(() => {
+    setFormState({ ...modelConfig });
+  }, [modelConfig]);
 
   if (!isOpen) return null;
 
@@ -111,22 +115,62 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                 </span>
               </div>
 
+              {/* AI Backend API URL */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Globe size={13} className="text-blue-400" />
+                    <span>Máy Chủ AI Backend (HTTP / HTTPS API):</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormState(prev => ({
+                        ...prev,
+                        apiUrl: ''
+                      }));
+                    }}
+                    className="text-[10px] text-slate-400 hover:text-blue-300 flex items-center gap-1"
+                    title="Khôi phục địa chỉ mặc định"
+                  >
+                    <RotateCcw size={10} />
+                    <span>Mặc định</span>
+                  </button>
+                </label>
+                <input
+                  type="text"
+                  value={formState.apiUrl ?? ''}
+                  onChange={(e) => {
+                    const newApi = e.target.value.trim();
+                    const wsBase = newApi.replace(/^http/, 'ws');
+                    setFormState(prev => ({
+                      ...prev,
+                      apiUrl: newApi,
+                      wsUrl: newApi ? `${wsBase}/ws/sessions/${prev.sessionId || 'session-01'}` : prev.wsUrl
+                    }));
+                  }}
+                  placeholder="https://visionguard-ai-backend.onrender.com hoặc http://127.0.0.1:8000"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Hệ thống tự tạo phiên và cấp vé WebSocket. Khi deploy riêng lẻ (Vercel + Render/Tunnel), dán domain backend vào đây.
+                </p>
+              </div>
+
               {/* WebSocket URL */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  WebSocket Endpoint (URL Server AI):
+                  WebSocket Endpoint (Stream Frame Realtime):
                 </label>
                 <input
                   type="text"
                   value={formState.wsUrl}
                   onChange={(e) => setFormState(prev => ({ ...prev, wsUrl: e.target.value }))}
-                  placeholder="wss://your-backend.example.com/ws/sessions/session-01"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none"
+                  placeholder="wss://.../ws/sessions/session-01"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:border-blue-500 focus:outline-none"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Production cần URL public bắt đầu bằng <code className="text-blue-300">wss://</code>; không dùng 127.0.0.1 trên Vercel.
-                </p>
               </div>
+
 
               {/* Session ID & Ticket */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
