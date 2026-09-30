@@ -51,6 +51,11 @@ class TrackResult(BaseModel):
     bending_duration_ms: int
     progress_percent: Optional[float] = 0.0
     activity: Optional[str] = "attentive"
+    suspicion_score: Optional[int] = 0
+    suspicion_level: Optional[str] = "NORMAL"
+    shoulder_tilt: Optional[float] = 0.0
+    is_leaning: Optional[bool] = False
+    turn_count_10s: Optional[int] = 0
 
 class FrameResult(BaseModel):
     type: Literal["result"] = "result"

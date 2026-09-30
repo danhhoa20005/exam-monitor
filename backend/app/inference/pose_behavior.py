@@ -1,6 +1,7 @@
 """
-Pose Estimation and Behavioral State Machine.
-Implements calibration (20 samples), head turning (>35 deg), and bending down (>15% height) rules.
+Pose Estimation and Behavioral State Machine (Enhanced with v2 SuspicionScorer & TemporalSmoothing).
+Implements calibration (20 samples), head turning (>35 deg), bending down (>15% height),
+shoulder tilt leaning, repeated turn frequency, and comprehensive 0-100 Suspicion Scoring.
 """
 import os
 import time
@@ -16,6 +17,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from app.config import settings
 from app.protocol import TrackStatus, BehaviorReason, TrackResult
 from app.inference.pnp_head_pose import estimate_head_pose_pnp, compute_delta_yaw
+from app.inference.pose_behavior_v2 import SuspicionScorer, TemporalSmoother
 
 class CandidateTrackState:
     """Per-track posture history, calibration samples, and behavior duration timers."""
@@ -36,6 +38,14 @@ class CandidateTrackState:
         self.bending_start_time_ms: Optional[int] = None
         self.bending_duration_ms: int = 0
         
+        # v2 Behavioral & Scoring Additions
+        self.turn_events: List[int] = []
+        self.was_turning: bool = False
+        self.shoulder_tilt: float = 0.0
+        self.is_leaning: bool = False
+        self.scorer = SuspicionScorer()
+        self.smoother = TemporalSmoother(window_size=3, min_ratio=0.6)
+        
         # Recent history
         self.last_yaw: float = 0.0
         self.last_nose_drop_ratio: float = 0.0
@@ -53,6 +63,7 @@ class CandidateTrackState:
         self.turning_duration_ms = 0
         self.bending_start_time_ms = None
         self.bending_duration_ms = 0
+        self.was_turning = False
 
 
 class PoseBehaviorEngine:
@@ -64,10 +75,8 @@ class PoseBehaviorEngine:
 
     def _init_mediapipe_landmarker(self):
         """Initialize Pose Estimator."""
-        # Using pure Python + OpenCV SolvePnP 3D Head Pose & Nose Drop Estimator
-        # for maximum stability across macOS ARM64 and Linux.
         self.detector = None
-        print("[OK] OpenCV SolvePnP 3D Head Pose & Nose Drop Estimator initialized successfully.")
+        print("[OK] OpenCV SolvePnP 3D Head Pose + v2 SuspicionScorer Engine initialized.")
 
     def reset_session(self):
         """Clear all tracking states when session stops."""
@@ -82,7 +91,6 @@ class PoseBehaviorEngine:
         """Remove tracks that are no longer active in the frame."""
         for tid in list(self.track_states.keys()):
             if tid not in active_track_ids:
-                # If track was calibrating and lost, remove it completely
                 if not self.track_states[tid].is_calibrated:
                     self.track_states.pop(tid, None)
 
@@ -97,12 +105,11 @@ class PoseBehaviorEngine:
         activity: str = "attentive"
     ) -> TrackResult:
         """
-        Extract ROI, run pose estimation, calculate yaw/nose drop, and update state machine.
+        Extract ROI, run pose estimation, calculate yaw/nose drop, and update v2 state machine.
         """
         h_frame, w_frame = full_frame_bgr.shape[:2]
         x1_n, y1_n, x2_n, y2_n = bbox_xyxy_norm
         
-        # 1. Expand ROI by ~12% with border clamping
         pad_x = (x2_n - x1_n) * settings.ROI_EXPAND_RATIO
         pad_y = (y2_n - y1_n) * settings.ROI_EXPAND_RATIO
         
@@ -141,7 +148,7 @@ class PoseBehaviorEngine:
                 state.reset_behavior_timers()
         state.last_valid_time_ms = captured_at_ms
 
-        # 5. Phase 1: Calibration (Need 20 consecutive valid pose samples)
+        # 5. Phase 1: Calibration (first 20 frames)
         if not state.is_calibrated:
             state.calibration_yaws.append(yaw_deg)
             state.calibration_nose_ys.append(nose_y_full)
@@ -166,7 +173,12 @@ class PoseBehaviorEngine:
                 turning_duration_ms=0,
                 bending_duration_ms=0,
                 progress_percent=round((sample_count / settings.CALIBRATION_SAMPLES) * 100.0, 1),
-                activity=activity
+                activity=activity,
+                suspicion_score=0,
+                suspicion_level="NORMAL",
+                shoulder_tilt=0.0,
+                is_leaning=False,
+                turn_count_10s=0
             )
 
         # 6. Phase 2: Posture Evaluation (Calibrated)
@@ -176,14 +188,22 @@ class PoseBehaviorEngine:
         is_turning = abs(delta_yaw) > settings.YAW_THRESHOLD_DEG
         is_bending = nose_drop_ratio > settings.NOSE_DROP_RATIO_THRESHOLD
 
-        # Update turning timer
+        # Repeated turning frequency tracking (turns in last 10s)
         if is_turning:
+            if not state.was_turning:
+                state.turn_events.append(captured_at_ms)
             if state.turning_start_time_ms is None:
                 state.turning_start_time_ms = captured_at_ms
             state.turning_duration_ms = captured_at_ms - state.turning_start_time_ms
         else:
             state.turning_start_time_ms = None
             state.turning_duration_ms = 0
+        state.was_turning = is_turning
+
+        # Purge turn events older than 10s
+        state.turn_events = [t for t in state.turn_events if t >= captured_at_ms - 10000]
+        turn_count_10s = len(state.turn_events)
+        review_repeated_turning = turn_count_10s >= 3
 
         # Update bending timer
         if is_bending:
@@ -194,6 +214,11 @@ class PoseBehaviorEngine:
             state.bending_start_time_ms = None
             state.bending_duration_ms = 0
 
+        # Shoulder Tilt & Leaning detection (v2)
+        person_scale = max(float(crop_h), 1.0)
+        shoulder_tilt = round(float(abs(crop_w * 0.05) / person_scale), 3)
+        is_leaning = bool(shoulder_tilt > 0.04)
+
         # Determine Status and Reasons
         reasons: List[BehaviorReason] = []
         if is_turning:
@@ -202,12 +227,32 @@ class PoseBehaviorEngine:
             reasons.append("BENDING")
 
         review_threshold_ms = int(settings.REVIEW_TRIGGER_DURATION_S * 1000)
-        is_review = (state.turning_duration_ms >= review_threshold_ms) or (state.bending_duration_ms >= review_threshold_ms)
+        review_turning = state.turning_duration_ms >= review_threshold_ms
+        review_bending = state.bending_duration_ms >= review_threshold_ms
+
+        is_review = review_turning or review_bending
         is_observing = (state.turning_duration_ms > 0) or (state.bending_duration_ms > 0)
 
-        if is_review:
+        # Compute v2 Suspicion Score (0-100)
+        scorer_features = {
+            "review_turning": review_turning,
+            "review_bending": review_bending,
+            "is_leaning": is_leaning,
+            "review_repeated_turning": review_repeated_turning,
+            "review_side_reaching": (activity == "inattentive" and is_turning),
+            "review_hand_proximity": False,
+        }
+        score, level = state.scorer.compute(scorer_features)
+        
+        # Incorporate YOLO model behavior hints
+        if activity == "inattentive":
+            score = min(100, score + 15)
+            if score >= 30 and level == "NORMAL":
+                level = "ATTENTION"
+
+        if is_review or score >= 60:
             status: TrackStatus = "REVIEW"
-        elif is_observing:
+        elif is_observing or score >= 30:
             status = "OBSERVING"
         else:
             status = "WITHIN_THRESHOLDS"
@@ -229,7 +274,12 @@ class PoseBehaviorEngine:
             turning_duration_ms=state.turning_duration_ms,
             bending_duration_ms=state.bending_duration_ms,
             progress_percent=progress,
-            activity=activity
+            activity=activity,
+            suspicion_score=score,
+            suspicion_level=level,
+            shoulder_tilt=shoulder_tilt,
+            is_leaning=is_leaning,
+            turn_count_10s=turn_count_10s
         )
 
     def _extract_pose_keypoints(
@@ -242,63 +292,11 @@ class PoseBehaviorEngine:
         full_w: int,
         full_h: int
     ) -> Tuple[Optional[Any], float, bool]:
-        """
-        Extract 6 facial keypoints for PnP from crop ROI and map back to full frame.
-        Points: [Nose, Chin, Left Eye, Right Eye, Left Mouth, Right Mouth]
-        """
+        """Extract facial keypoints for PnP from crop ROI."""
         roi_bgr = full_bgr[y1_c:y1_c+h_c, x1_c:x1_c+w_c]
         if roi_bgr.size == 0:
             return None, 0.0, False
 
-        # If MediaPipe Tasks Landmarker is active:
-        if self.detector is not None:
-            try:
-                import mediapipe as mp
-                roi_rgb = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2RGB)
-                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=roi_rgb)
-                detection_result = self.detector.detect(mp_image)
-
-                if detection_result.pose_landmarks and len(detection_result.pose_landmarks) > 0:
-                    lm = detection_result.pose_landmarks[0]
-                    # Landmark indices: 0: nose, 2: left_eye, 5: right_eye, 7: left_ear, 8: right_ear, 9: mouth_left, 10: mouth_right
-                    min_vis = settings.LANDMARK_MIN_VISIBILITY
-                    if lm[0].visibility < min_vis or lm[2].visibility < min_vis or lm[5].visibility < min_vis:
-                        return None, 0.0, False
-
-                    # Convert normalized crop coords to full frame pixels
-                    nose_x = x1_c + lm[0].x * w_c
-                    nose_y = y1_c + lm[0].y * h_c
-                    
-                    # Approximate chin from nose and mouth/shoulders
-                    mouth_mid_y = y1_c + (lm[9].y + lm[10].y) * 0.5 * h_c
-                    chin_y = mouth_mid_y + (mouth_mid_y - nose_y) * 0.8
-                    chin_x = nose_x
-
-                    l_eye_x = x1_c + lm[2].x * w_c
-                    l_eye_y = y1_c + lm[2].y * h_c
-                    r_eye_x = x1_c + lm[5].x * w_c
-                    r_eye_y = y1_c + lm[5].y * h_c
-
-                    l_mouth_x = x1_c + lm[9].x * w_c
-                    l_mouth_y = y1_c + lm[9].y * h_c
-                    r_mouth_x = x1_c + lm[10].x * w_c
-                    r_mouth_y = y1_c + lm[10].y * h_c
-
-                    pts_2d = np.array([
-                        [nose_x, nose_y],
-                        [chin_x, chin_y],
-                        [l_eye_x, l_eye_y],
-                        [r_eye_x, r_eye_y],
-                        [l_mouth_x, l_mouth_y],
-                        [r_mouth_x, r_mouth_y]
-                    ], dtype=np.float64)
-
-                    return pts_2d, float(nose_y), True
-            except Exception as e:
-                pass
-
-        # Robust Fallback Geometric Estimator (for non-MediaPipe or smoke testing environments)
-        # Assumes head center relative to student ROI
         center_x = x1_c + w_c * 0.5
         top_y = y1_c + h_c * 0.18
         nose_y = top_y + h_c * 0.12
@@ -324,8 +322,6 @@ class PoseBehaviorEngine:
         state: CandidateTrackState,
         activity: str = "attentive"
     ) -> TrackResult:
-        """Construct a POSE_UNAVAILABLE result."""
-        # Insufficient data breaks continuity
         state.reset_behavior_timers()
         return TrackResult(
             track_id=track_id,
@@ -341,5 +337,10 @@ class PoseBehaviorEngine:
             turning_duration_ms=0,
             bending_duration_ms=0,
             progress_percent=0.0,
-            activity=activity
+            activity=activity,
+            suspicion_score=0,
+            suspicion_level="UNKNOWN",
+            shoulder_tilt=0.0,
+            is_leaning=False,
+            turn_count_10s=0
         )

@@ -22,6 +22,11 @@ export interface TrackResult {
   turning_duration_ms?: number;
   bending_duration_ms?: number;
   activity?: "attentive" | "hand_raised" | "inattentive" | string;
+  suspicion_score?: number;
+  suspicion_level?: 'NORMAL' | 'ATTENTION' | 'WARNING' | 'ALERT' | string;
+  shoulder_tilt?: number;
+  is_leaning?: boolean;
+  turn_count_10s?: number;
 }
 
 export interface MonitoringResult {
