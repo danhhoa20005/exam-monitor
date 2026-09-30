@@ -212,7 +212,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
         setConnectionState('error');
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         if (!isComponentMountedRef.current) return;
         setConnectionState('disconnected');
         inFlightFrameRef.current = false;
@@ -224,7 +224,12 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
         reconnectTimeoutRef.current = window.setTimeout(() => {
           if (isComponentMountedRef.current) {
             setConnectionState('reconnecting');
-            connectWebSocket();
+            // If closed due to policy violation / ticket expired, re-fetch new session ticket
+            if (event.code === 1008) {
+              bootstrapSession();
+            } else {
+              connectWebSocket();
+            }
           }
         }, 3000);
       };
