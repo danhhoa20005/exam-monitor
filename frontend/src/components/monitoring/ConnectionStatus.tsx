@@ -6,12 +6,14 @@ interface ConnectionStatusProps {
   status: SocketConnectionState;
   fps?: number;
   latencyMs?: number;
+  onClick?: () => void;
 }
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   status,
   fps = 0,
-  latencyMs = 0
+  latencyMs = 0,
+  onClick
 }) => {
   let label = 'Chưa kết nối AI';
   let dotColor = 'bg-slate-500';
@@ -26,9 +28,9 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     dotColor = 'bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]';
     badgeBorder = 'border-amber-500/40 bg-amber-950/40 text-amber-300';
   } else if (status === 'error') {
-    label = 'Lỗi kết nối';
+    label = 'Lỗi kết nối (Bấm để sửa)';
     dotColor = 'bg-rose-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]';
-    badgeBorder = 'border-rose-500/40 bg-rose-950/40 text-rose-300';
+    badgeBorder = 'border-rose-500/40 bg-rose-950/40 text-rose-300 animate-pulse';
   }
 
   const fpsColor = fps >= 10 ? 'text-emerald-400' : fps >= 5 ? 'text-cyan-400' : 'text-amber-400';
@@ -36,10 +38,15 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       {/* Main Connection Status Pill */}
-      <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold border backdrop-blur-md transition-colors ${badgeBorder}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold border backdrop-blur-md transition-all cursor-pointer active:scale-95 ${badgeBorder}`}
+        title="Bấm để xem hoặc cấu hình kết nối AI Backend"
+      >
         <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-        <span className="truncate max-w-[110px] sm:max-w-none">{label}</span>
-      </div>
+        <span className="truncate max-w-[120px] sm:max-w-none">{label}</span>
+      </button>
 
       {/* Live Telemetry Pill: FPS & Latency (Visible on all devices) */}
       {status === 'connected' && (

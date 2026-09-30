@@ -211,63 +211,14 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
         ctx.roundRect(x, y, w, h, 6);
         ctx.fill();
 
-        // 2. Base Border
-        ctx.strokeStyle = isReview 
-          ? 'rgba(239, 68, 68, 0.65)' 
-          : isObserving 
-            ? 'rgba(245, 158, 11, 0.55)' 
-            : 'rgba(16, 185, 129, 0.45)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // 3. Cyberpunk High-Tech Corner Brackets
-        const cornerLen = Math.min(20, w * 0.25, h * 0.25);
+        // 2. Clean, Crisp Bounding Box with Smooth Glow
         ctx.save();
         ctx.strokeStyle = style.color;
-        ctx.lineWidth = isReview ? 3.5 : 2.5;
-        ctx.shadowColor = style.color;
-        ctx.shadowBlur = isReview ? 10 : 6;
-
-        // Top-Left ┏
+        ctx.lineWidth = isReview ? 2.5 : 2.0;
+        ctx.shadowColor = isReview ? 'rgba(239, 68, 68, 0.5)' : isObserving ? 'rgba(245, 158, 11, 0.4)' : 'transparent';
+        ctx.shadowBlur = isReview ? 8 : 4;
         ctx.beginPath();
-        ctx.moveTo(x, y + cornerLen);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + cornerLen, y);
-        ctx.stroke();
-
-        // Top-Right ┓
-        ctx.beginPath();
-        ctx.moveTo(x + w - cornerLen, y);
-        ctx.lineTo(x + w, y);
-        ctx.lineTo(x + w, y + cornerLen);
-        ctx.stroke();
-
-        // Bottom-Left ┗
-        ctx.beginPath();
-        ctx.moveTo(x, y + h - cornerLen);
-        ctx.lineTo(x, y + h);
-        ctx.lineTo(x + cornerLen, y + h);
-        ctx.stroke();
-
-        // Bottom-Right ┛
-        ctx.beginPath();
-        ctx.moveTo(x + w - cornerLen, y + h);
-        ctx.lineTo(x + w, y + h);
-        ctx.lineTo(x + w, y + h - cornerLen);
-        ctx.stroke();
-        ctx.restore();
-
-        // 4. Subtle Head Area Crosshair Reticle
-        const headCenterY = y + h * 0.26;
-        const headCenterX = x + w * 0.5;
-        ctx.save();
-        ctx.strokeStyle = isReview ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.35)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(headCenterX - 8, headCenterY);
-        ctx.lineTo(headCenterX + 8, headCenterY);
-        ctx.moveTo(headCenterX, headCenterY - 8);
-        ctx.lineTo(headCenterX, headCenterY + 8);
+        ctx.roundRect(x, y, w, h, 6);
         ctx.stroke();
         ctx.restore();
 

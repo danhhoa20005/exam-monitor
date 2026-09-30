@@ -51,7 +51,12 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Center: Live Connection State & FPS */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <ConnectionStatus status={connectionState} fps={fps} latencyMs={latencyMs} />
+          <ConnectionStatus 
+            status={connectionState} 
+            fps={fps} 
+            latencyMs={latencyMs} 
+            onClick={onOpenConfig}
+          />
 
           {/* AI / WebSocket Settings Button */}
           <button
