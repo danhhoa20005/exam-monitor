@@ -1,127 +1,245 @@
-# VisionGuard AI — Realtime Exam Posture Surveillance (Pro Max Edition)
+# VisionGuard AI — Hệ Thống Giám Sát Phòng Thi Trực Tuyến Thông Minh
 
-Hệ thống giám sát tư thế phòng thi trực tuyến thời gian thực chuẩn công nghệ cao sử dụng **YOLOv8**, **ByteTrack** và **MediaPipe Tasks Pose Landmarker**.
+Hệ thống giám sát tư thế thí sinh phòng thi thời gian thực thế hệ mới, kết hợp **YOLOv8**, **ByteTrack**, **MediaPipe Tasks Pose Landmarker** và giao diện **Cyberpunk Tactical HUD (React + Vite + TypeScript)**. Tối ưu hoàn hảo cho cả máy tính để bàn và thiết bị di động (Responsive).
 
 ---
 
-## 🏗️ Cấu Trúc Toàn Bộ Dự Án
+## 📑 Mục Lục
+1. [Tính Năng Nổi Bật](#-tính-năng-nổi-bật)
+2. [Cấu Trúc Thư Mục](#-cấu-trúc-thư-mục)
+3. [Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
+4. [Hướng Dẫn Cài Đặt & Khởi Chạy](#-hướng-dẫn-cài-đặt--khởi-chạy)
+   - [Cách 1: Khởi động nhanh (Khuyên dùng)](#cách-1-khởi-động-nhanh-khuyên-dùng)
+   - [Cách 2: Khởi động thủ công từng phần](#cách-2-khởi-động-thủ-công-từng-phần)
+   - [Cách kết nối từ xa trên Điện thoại (Cloudflare Tunnel)](#cách-kết-nối-từ-xa-trên-điện-thoại-cloudflare-tunnel)
+   - [Cách kiểm thử bằng Video có sẵn](#cách-kiểm-thử-bằng-video-có-sẵn)
+5. [Quy Chuẩn AI & Phát Hiện Hành Vi](#-quy-chuẩn-ai--phát-hiện-hành-vi)
+6. [Hướng Dẫn Đẩy Code Lên GitHub](#-hướng-dẫn-đẩy-code-lên-github)
+   - [Quy trình đẩy bản mới nhất](#1-quy-trình-đẩy-bản-mới-nhất-hằng-ngày)
+   - [Xử lý khi bị lỗi xung đột (Conflict / Rejected)](#2-xử-lý-khi-gặp-xung-đột-conflict--rejected)
+
+---
+
+## 🌟 Tính Năng Nổi Bật
+
+- **Realtime Multi-Person Tracking**: Định danh thí sinh liên tục bằng **ByteTrack** kết hợp **YOLOv8**.
+- **3D Head Pose & Skeletal Analysis**: Đo góc quay đầu Yaw ($\pm 35^\circ$) bằng thuật toán SolvePnP và 33 điểm mốc xương khớp MediaPipe.
+- **Thang Điểm Nghi Vấn (Hazard Meter 0 - 100)**: Tích hợp bộ lọc làm mịn thời gian (Temporal Smoothing) và phân loại vi phạm tức thì.
+- **Tải Video Trực Tiếp (Video Test Suite)**: Cho phép tải file video (.mp4, .webm, .mov) lên thẳng Web HUD để giả lập bài thi mà không cần camera.
+- **Cloudflare Tunnel Tích Hợp Sẵn**: 1 lệnh sinh link HTTPS công khai để giám thị theo dõi trực tiếp từ điện thoại hoặc máy tính bảng ở bất cứ đâu.
+- **Giao diện Tactical HUD đỉnh cao**: Tối ưu hiển thị responsive, chế độ toàn màn hình, điều chỉnh FPS quét linh hoạt (15/30/60 FPS).
+
+---
+
+## 📂 Cấu Trúc Thư Mục
 
 ```text
-Ai/
-├── frontend/                           # Giao diện React + TypeScript + Vite (Pro Max HUD)
+exam-monitor/
+├── frontend/                     # Giao diện React + TypeScript + Vite
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Header.tsx              # HUD Top bar, đồng hồ phiên, Threat meter, Audio
-│   │   │   ├── CameraView.tsx          # Khung video HUD reticles, Radar beam, Scanlines toggle
-│   │   │   ├── TrackOverlay.tsx        # Overlay Canvas đa lớp, thước đo góc Yaw, thanh hazard
-│   │   │   ├── CandidateCards.tsx      # Lưới thẻ giám sát tư thế realtime từng thí sinh
-│   │   │   ├── CandidateDetailModal.tsx# Cửa sổ phân tích sâu hồ sơ tư thế & lịch sử sự kiện
-│   │   │   ├── EventPanel.tsx          # Luồng sự kiện nghi vấn & thao tác duyệt của giám thị
-│   │   │   ├── MetricsPanel.tsx        # Bảng KPI telemetry hiệu năng AI
-│   │   │   ├── CalibrationGuide.tsx    # Hướng dẫn hiệu chuẩn 20 mẫu tham chiếu
-│   │   │   └── LoginModal.tsx          # Hộp thoại danh tính giám thị
-│   │   ├── hooks/
-│   │   │   ├── useCamera.ts            # Điều khiển webcam, lật gương, quét frame JPEG 0.75
-│   │   │   ├── useMonitoringSession.ts # Bộ máy mô phỏng đa thí sinh + WebSocket client
-│   │   │   └── useAudioAlert.ts        # Bộ tổng hợp âm thanh Web Audio cảnh báo
-│   │   ├── types/
-│   │   │   └── protocol.ts             # TypeScript protocol types
-│   │   ├── App.tsx                     # Bố cục trung tâm chỉ huy
-│   │   ├── App.css                     # Phong cách Cyberpunk HUD
-│   │   ├── index.css                   # Design tokens neon & animations
-│   │   └── main.tsx
-│   ├── dist/                           # Production bundle tĩnh đã build sẵn
+│   │   │   ├── camera/           # CameraView, CameraControls (Hỗ trợ Webcam + Upload Video)
+│   │   │   ├── common/           # Header, ModelConfigModal (Cấu hình AI Server & Cloudflare Tunnel)
+│   │   │   ├── candidate/        # Thẻ thông tin thí sinh, phân tích chi tiết
+│   │   │   └── dashboard/        # Radar, Timeline sự kiện, Telemetry KPI
+│   │   ├── hooks/                # useCamera, useMonitoringSocket (Tự động cấp vé & tái kết nối)
+│   │   ├── pages/                # MonitorPage (Responsive Mobile & Desktop)
+│   │   └── constants/            # Cấu hình API, WS URL
 │   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   └── vercel.json                     # Cấu hình deploy Vercel
+│   └── vite.config.ts
 │
-├── backend/                            # Máy chủ AI FastAPI + YOLOv8 + ByteTrack + MediaPipe
+├── backend/                      # Máy chủ FastAPI + AI Pipeline
 │   ├── app/
-│   │   ├── main.py                     # FastAPI WebSocket & REST Endpoints
-│   │   ├── auth.py                     # Xác thực & vé WS ticket
-│   │   ├── sessions.py                 # Quản lý phiên & luồng inference tuần tự
-│   │   ├── protocol.py                 # Pydantic schemas
-│   │   ├── config.py                   # Cấu hình & ngưỡng thuật toán (35° yaw, 15% hạ mũi)
+│   │   ├── main.py               # WebSocket & REST API
+│   │   ├── sessions.py           # Quản lý luồng xử lý frame tuần tự
+│   │   ├── protocol.py           # Pydantic Schemas dữ liệu chuẩn
 │   │   └── inference/
-│   │       ├── tracking_core.py        # Pipeline YOLOv8 + ByteTrack
-│   │       ├── pose_behavior.py        # MediaPipe Tasks Pose + Lấy mốc 20 mẫu + Rule engine
-│   │       ├── events.py               # Gom nhóm sự kiện & bộ xuất CSV/JSON
-│   │       └── pnp_head_pose.py        # SolvePnP 3D Euler Angles (EPnP + Iterative)
-│   ├── models/
-│   │   ├── download_models.py          # Tự động tải Pose model & kiểm tra SHA-256
-│   │   └── README.md                   # Hướng dẫn copy best.pt
-│   ├── config/
-│   │   └── bytetrack.yaml              # Cấu hình ByteTrack
-│   ├── tests/                          # Bộ unit test & integration test
-│   │   ├── test_protocol.py
-│   │   ├── test_pnp.py
-│   │   ├── test_pose_behavior.py
-│   │   ├── test_events.py
-│   │   └── test_api.py
+│   │       ├── tracking_core.py  # YOLOv8 + ByteTrack
+│   │       ├── pose_behavior.py  # MediaPipe Pose + Bộ lọc góc quay
+│   │       └── pnp_head_pose.py  # Ước lượng tư thế 3D SolvePnP
+│   ├── models/                   # Trọng số best.pt và pose_landmarker_lite.task
 │   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env.example
+│   └── Dockerfile
 │
 ├── scripts/
-│   ├── start_backend.sh                # Script khởi động FastAPI Backend
-│   ├── start_tunnel.sh                 # Script mở Cloudflare Quick Tunnel cho demo
-│   └── run_tests.sh                    # Script chạy toàn bộ test
-├── README.md
-└── .gitignore
+│   ├── start-ai-server.sh        # Khởi động Backend + Cloudflare Tunnel tự động
+│   ├── start_backend.sh          # Khởi động Backend độc lập
+│   ├── start_tunnel.sh           # Mở Cloudflare Tunnel
+│   └── run_tests.sh              # Chạy bộ kiểm thử tự động
+├── package.json                  # Scripts quản lý toàn bộ workspace
+├── README.md                     # Tài liệu hướng dẫn sử dụng
+└── .gitignore                    # Loại trừ file rác, weights nặng & token bí mật
 ```
 
 ---
 
-## 📥 1. Hướng Dẫn Ghép AI Model Đã Train Vào
+## 💻 Yêu Cầu Hệ Thống
 
-### Bước 1: Sao chép file `best.pt`
-Chỉ cần copy file trọng số mô hình đã huấn luyện của bạn vào đường dẫn:
-```text
-backend/models/best.pt
-```
+- **Hệ điều hành**: macOS, Ubuntu/Linux, hoặc Windows (WSL2).
+- **Node.js**: Phiên bản 18.x trở lên (`node -v`).
+- **Python**: Phiên bản 3.10 hoặc 3.11 (`python3 -v`).
+- **Git**: Đã cài đặt và kết nối SSH hoặc HTTPS với GitHub.
 
-### Bước 2: Kiểm tra Checksum SHA-256
-Chạy lệnh sau để hệ thống tự động kiểm tra mã băm và tải `pose_landmarker_lite.task`:
+---
+
+## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
+
+### Cài đặt ban đầu (Lần đầu tiên)
+
+1. **Cài đặt thư viện Frontend:**
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+
+2. **Cài đặt môi trường Backend:**
+   ```bash
+   cd backend
+   python3 -m venv .venv
+   source .venv/bin/activate       # Trên Windows: .venv\Scripts\activate
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   cd ..
+   ```
+
+3. **Tải file trọng số AI Pose Landmarker:**
+   ```bash
+   python3 backend/models/download_models.py
+   ```
+   *(File `best.pt` của YOLO nếu có hãy đặt vào thư mục `backend/models/best.pt`)*
+
+---
+
+### Cách 1: Khởi động nhanh (Khuyên dùng)
+
+Tại thư mục gốc của dự án (`exam-monitor`):
+
+1. **Bật AI Backend & Đường hầm Cloudflare Tunnel:**
+   ```bash
+   npm run ai-server
+   ```
+   *Lệnh này sẽ tự động chạy FastAPI trên cổng `8000` và hiển thị link Cloudflare công khai (dạng `https://xxxx.trycloudflare.com`).*
+
+2. **Mở một Terminal mới, khởi động Frontend:**
+   ```bash
+   npm run dev
+   ```
+   *Truy cập trình duyệt tại: **`http://localhost:5173`***.
+
+---
+
+### Cách 2: Khởi động thủ công từng phần
+
+#### 1. Khởi động AI Backend:
 ```bash
-python3 backend/models/download_models.py
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-*Mã SHA-256 tiêu chuẩn theo đặc tả: `c1ea0a60e07a33c4bd01263e261e644cd74cf2520d164acf9512f5828512bbe1`*
+- Kiểm tra tài liệu Swagger API: `http://localhost:8000/docs`
+- Kiểm tra trạng thái: `http://localhost:8000/api/v1/health`
 
----
-
-## 🚀 2. Khởi Chạy Ứng Dụng
-
-### Khởi động Frontend
+#### 2. Khởi động Frontend:
 ```bash
 cd frontend
 npm run dev
 ```
-Truy cập: **`http://localhost:5173`**
 
-### Khởi động Backend (Sau khi cài thư viện Python)
-```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
-```
-Hoặc dùng script:
-```bash
-./scripts/start_backend.sh
-```
+---
 
-### Mở Tunnel Demo Ra Mạng Ngoài (Cloudflare Tunnel)
+### 📱 Cách kết nối từ xa trên Điện thoại (Cloudflare Tunnel)
+
+1. Khi chạy `npm run ai-server`, terminal sẽ xuất hiện dòng:
+   ```text
+   Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):
+   https://random-subdomain.trycloudflare.com
+   ```
+2. Copy đường link `https://random-subdomain.trycloudflare.com`.
+3. Mở giao diện Web trên Điện thoại hoặc Laptop khác (qua link Vercel hoặc mạng LAN).
+4. Nhấn vào biểu tượng **⚙️ Cài Đặt** ở góc phải thanh Header.
+5. Dán link vừa copy vào ô **"Địa chỉ AI Backend"** $\rightarrow$ Nhấn **"Lưu Cấu Hình"**.
+6. Nhấn **"Bật Camera"** hoặc **"Tải Video Lên"** để bắt đầu giám sát!
+
+---
+
+### 🎥 Cách kiểm thử bằng Video có sẵn
+
+Nếu không có webcam hoặc muốn thử nghiệm các tình huống quay cóp mẫu:
+1. Nhấn nút **"📁 Tải Video Lên"** ngay cạnh nút Bật Camera.
+2. Chọn video định dạng `.mp4`, `.mov` hoặc `.webm`.
+3. Trình phát sẽ tự động trích xuất từng khung hình và truyền qua AI WebSocket để phân tích thời gian thực giống hệt như camera trực tiếp.
+
+---
+
+## 🎯 Quy Chuẩn AI & Phát Hiện Hành Vi
+
+- **Hiệu chuẩn góc nhìn (Calibration)**: Tự động ghi nhận 20 khung hình đầu tiên để tính góc Yaw cơ sở ($Yaw_0$) và độ cao mũi ($NoseY_0$).
+- **Quay đầu bất thường (Turning Head)**: Chênh lệch $|\Delta Yaw| > 35^\circ$.
+- **Cúi người / Nhìn tài liệu (Bending Down)**: Hạ mũi $NoseY - NoseY_0 > 0.15 \times \text{Chiều cao khung hình}$.
+- **Cảnh báo vi phạm (Trigger REVIEW)**: Khi duy trì trạng thái bất thường liên tục $\ge 1.5$ giây.
+
+---
+
+## 🐙 Hướng Dẫn Đẩy Code Lên GitHub
+
+### 1. Quy trình đẩy bản mới nhất hằng ngày
+
+Khi bạn đã sửa đổi code hoặc thêm tính năng mới, mở Terminal tại thư mục dự án và chạy các lệnh sau:
+
 ```bash
-./scripts/start_tunnel.sh
+# Bước 1: Kiểm tra trạng thái các file đã thay đổi
+git status
+
+# Bước 2: Thêm tất cả thay đổi vào vùng chuẩn bị commit
+git add .
+
+# Bước 3: Tạo commit với thông điệp rõ ràng
+git commit -m "feat: cập nhật mô tả tính năng mới"
+
+# Bước 4: Đẩy lên nhánh main trên GitHub
+git push origin main
 ```
 
 ---
 
-## 🎯 3. Quy Chuẩn Đánh Giá Tư Thế (As Per Specification)
+### 2. Xử lý khi gặp xung đột (Conflict / Rejected)
 
-- **Hiệu chuẩn (Calibration)**: Thu thập đủ **20 mẫu Pose hợp lệ liên tiếp** để tính trung vị Yaw ($Yaw_0$) và tọa độ Y của mũi ($NoseY_0$).
-- **Quay đầu (Turning)**: $|\Delta Yaw| > 35^\circ$ với $\Delta Yaw = ((Yaw - Yaw_0 + 180) \bmod 360) - 180$.
-- **Hạ người (Bending)**: $NoseY - NoseY_0 > 0.15 \times H$ (chiều cao toàn khung hình).
-- **Kích hoạt Nghi vấn (REVIEW)**: Khi một trong hai hành vi vượt ngưỡng liên tục $\ge 1.5$ giây.
-- **Gián đoạn (Gap)**: Khoảng trống $> 2.5$ giây tự động reset bộ đếm thời gian.
-- **Nhãn tự động**: Luôn hiển thị **"Nghi vấn — cần xem lại"** kèm nguyên nhân, quyết định xử lý vi phạm thuộc về Giám thị.
+Nếu trên GitHub có người khác sửa hoặc bạn vừa cập nhật trên máy tính khác dẫn đến việc bị từ chối push:
+
+```bash
+# 1. Kéo code mới nhất về và ghép vào nhánh hiện tại
+git pull --rebase origin main
+
+# 2. Nếu có xung đột, mở file xử lý conflict rồi đánh dấu đã sửa:
+git add .
+git rebase --continue
+
+# 3. Đẩy lại lên GitHub
+git push origin main
+```
+
+---
+
+### 3. Các lệnh Git tiện ích hay dùng
+
+- **Xem lịch sử commit ngắn gọn:**
+  ```bash
+  git log --oneline -n 5
+  ```
+- **Tạm cất các thay đổi chưa xong để kéo code mới:**
+  ```bash
+  git stash
+  git pull origin main
+  git stash pop
+  ```
+- **Hủy bỏ các sửa đổi chưa commit của một file:**
+  ```bash
+  git checkout -- <tên-file>
+  ```
+
+---
+
+## 🛡️ Bản Quyền & Giấy Phép
+Dự án được phát triển phục vụ mục đích nghiên cứu & ứng dụng giám sát phòng thi thông minh.  
+Mọi thắc mắc và đóng góp xin vui lòng tạo Issue hoặc Pull Request trên repository.
