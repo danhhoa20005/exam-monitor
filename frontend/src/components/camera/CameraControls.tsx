@@ -166,7 +166,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
         {/* Status Hint */}
         <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
           <Zap size={12} className="text-emerald-400" />
-          <span>YOLOv8n + SolvePnP + v2 Suspicion</span>
+          <span>YOLO11-Pose + Anti-Cheat Engine</span>
         </div>
       </div>
     </div>

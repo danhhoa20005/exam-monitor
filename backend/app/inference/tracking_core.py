@@ -37,14 +37,14 @@ class SessionInferencePipeline:
         fallback_path = str(settings.FALLBACK_YOLO_PATH)
 
         target_path = None
-        if os.path.exists(custom_model_path):
-            target_path = custom_model_path
-            self.is_custom_student_model = True
-            print(f"[OK] Loading custom trained YOLO model: {custom_model_path}")
-        elif os.path.exists(pose_model_path):
+        if os.path.exists(pose_model_path):
             target_path = pose_model_path
             self.is_pose_model = True
             print(f"[OK] Loading YOLO11-Pose model: {pose_model_path}")
+        elif os.path.exists(custom_model_path):
+            target_path = custom_model_path
+            self.is_custom_student_model = True
+            print(f"[OK] Loading custom trained YOLO model: {custom_model_path}")
         elif os.path.exists(fallback_path):
             target_path = fallback_path
             print(f"[INFO] Using fallback YOLO model: {fallback_path}")
@@ -176,17 +176,20 @@ class SessionInferencePipeline:
         self.pose_engine.remove_lost_tracks(active_track_ids)
 
         for track_id, bbox_norm, conf, act_name, kpts in detections:
-            res = self.pose_engine.process_student_roi(
-                full_frame_bgr=frame_bgr,
-                bbox_xyxy_norm=bbox_norm,
-                track_id=track_id,
-                frame_id=frame_id,
-                captured_at_ms=captured_at_ms,
-                detection_conf=conf,
-                person_kpts=kpts,
-                activity=act_name if act_name in ["attentive", "hand_raised", "inattentive"] else "attentive"
-            )
-            track_results.append(res)
+            try:
+                res = self.pose_engine.process_student_roi(
+                    full_frame_bgr=frame_bgr,
+                    bbox_xyxy_norm=bbox_norm,
+                    track_id=track_id,
+                    frame_id=frame_id,
+                    captured_at_ms=captured_at_ms,
+                    detection_conf=conf,
+                    person_kpts=kpts,
+                    activity=act_name if act_name in ["attentive", "hand_raised", "inattentive"] else "attentive"
+                )
+                track_results.append(res)
+            except Exception as e:
+                print(f"[WARN] Error analyzing pose for track {track_id}: {e}")
 
         t_pose_end = time.perf_counter()
         pose_ms = int((t_pose_end - t_pose_start) * 1000)

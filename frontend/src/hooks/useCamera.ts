@@ -96,9 +96,12 @@ export function useCamera() {
     setVideoDimensions({ width: 0, height: 0 });
   }, []);
 
+  const isSwitchingRef = useRef<boolean>(false);
+
   // Start Camera with specified facing mode or specific deviceId
   const startCamera = useCallback(async (modeToUse?: CameraFacingMode, specificDeviceId?: string) => {
     setError(null);
+    isSwitchingRef.current = true;
     const targetMode = modeToUse || facingMode;
 
     // Check browser support for getUserMedia
@@ -108,6 +111,7 @@ export function useCamera() {
         message: 'Trình duyệt hiện tại không hỗ trợ truy cập Camera (getUserMedia). Vui lòng dùng Chrome hoặc Safari mới nhất.'
       };
       setError(err);
+      isSwitchingRef.current = false;
       return false;
     }
 
@@ -179,10 +183,20 @@ export function useCamera() {
         videoRef.current.setAttribute('autoplay', 'true');
         videoRef.current.muted = true;
         
-        // Wait for video metadata to load dimensions
+        // Wait for video metadata with timeout fallback so it never hangs
         await new Promise<void>((resolve) => {
           if (!videoRef.current) return resolve();
-          videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current.readyState >= HTMLMediaElement.HAVE_METADATA && videoRef.current.videoWidth > 0) {
+            setVideoDimensions({
+              width: videoRef.current.videoWidth,
+              height: videoRef.current.videoHeight
+            });
+            return resolve();
+          }
+          let resolved = false;
+          const done = () => {
+            if (resolved) return;
+            resolved = true;
             if (videoRef.current) {
               setVideoDimensions({
                 width: videoRef.current.videoWidth || 1280,
@@ -191,9 +205,15 @@ export function useCamera() {
             }
             resolve();
           };
+          videoRef.current.onloadedmetadata = done;
+          setTimeout(done, 800);
         });
 
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn('Video play() call deferred or failed:', playErr);
+        }
       }
 
       setIsStreaming(true);
@@ -229,6 +249,8 @@ export function useCamera() {
       setError(camError);
       setIsStreaming(false);
       return false;
+    } finally {
+      isSwitchingRef.current = false;
     }
   }, [facingMode, refreshDevices]);
 
@@ -290,7 +312,7 @@ export function useCamera() {
     quality: number = 0.75
   ): { base64: string; width: number; height: number; facingMode: CameraFacingMode } | null => {
     const video = videoRef.current;
-    if (!video || !isStreaming || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    if (!video || !isStreaming || isSwitchingRef.current || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
       return null;
     }
 
@@ -304,16 +326,21 @@ export function useCamera() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-    const dataUrl = canvas.toDataURL('image/jpeg', quality);
-    const base64 = dataUrl.split(',')[1] || '';
+    try {
+      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      const base64 = dataUrl.split(',')[1] || '';
+      if (!base64) return null;
 
-    return { 
-      base64, 
-      width: targetWidth, 
-      height: targetHeight,
-      facingMode 
-    };
+      return { 
+        base64, 
+        width: targetWidth, 
+        height: targetHeight,
+        facingMode 
+      };
+    } catch {
+      return null;
+    }
   }, [isStreaming, facingMode]);
 
   // Clean up on component unmount

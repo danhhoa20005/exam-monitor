@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </h1>
             <p className="hidden sm:block text-[10px] text-slate-400 font-medium truncate font-mono">
-              YOLOv8n (best.pt) • ByteTrack • SolvePnP v2
+              YOLO11-Pose • ByteTrack • Anti-Cheat
             </p>
           </div>
         </div>

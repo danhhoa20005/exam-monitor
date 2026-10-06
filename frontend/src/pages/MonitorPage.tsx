@@ -270,7 +270,7 @@ export const MonitorPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-800/60">
                   <Radio size={11} className="animate-pulse" />
-                  <span>Live YOLOv8n</span>
+                  <span>Live YOLO11-Pose</span>
                 </div>
               </div>
 

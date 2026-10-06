@@ -41,6 +41,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const inFlightFrameRef = useRef<boolean>(false);
+  const inFlightTimeoutRef = useRef<number | null>(null);
   const fpsTimestampsRef = useRef<number[]>([]);
   const isComponentMountedRef = useRef<boolean>(true);
 
@@ -167,6 +168,10 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
           
           if (data.type === 'result') {
             inFlightFrameRef.current = false;
+            if (inFlightTimeoutRef.current) {
+              clearTimeout(inFlightTimeoutRef.current);
+              inFlightTimeoutRef.current = null;
+            }
             setTracks(data.tracks || []);
             recordFrameTelemetry(data.processing_ms || 0);
 
@@ -199,6 +204,10 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
             setLatencyMs(rtt);
           } else if (data.type === 'error') {
             inFlightFrameRef.current = false;
+            if (inFlightTimeoutRef.current) {
+              clearTimeout(inFlightTimeoutRef.current);
+              inFlightTimeoutRef.current = null;
+            }
             setConnectionState('error');
             console.error('AI Model WebSocket error message:', data.message);
           }
@@ -210,14 +219,23 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
       ws.onerror = () => {
         if (!isComponentMountedRef.current) return;
         setConnectionState('error');
+        inFlightFrameRef.current = false;
+        if (inFlightTimeoutRef.current) {
+          clearTimeout(inFlightTimeoutRef.current);
+          inFlightTimeoutRef.current = null;
+        }
       };
 
       ws.onclose = (event) => {
         if (!isComponentMountedRef.current) return;
         setConnectionState('disconnected');
         inFlightFrameRef.current = false;
+        if (inFlightTimeoutRef.current) {
+          clearTimeout(inFlightTimeoutRef.current);
+          inFlightTimeoutRef.current = null;
+        }
         
-        // Auto-reconnect with 3s backoff
+        // Auto-reconnect with 1.5s backoff
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }
@@ -231,7 +249,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
               connectWebSocket();
             }
           }
-        }, 3000);
+        }, 1500);
       };
 
       wsRef.current = ws;
@@ -256,10 +274,13 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+      if (inFlightTimeoutRef.current) {
+        clearTimeout(inFlightTimeoutRef.current);
+      }
     };
   }, [connectWebSocket, sessionReady]);
 
-  // Send Frame to WebSocket (Guarded with 1 in-flight frame limit)
+  // Send Frame to WebSocket (Guarded with 1 in-flight frame limit + safety auto-timeout)
   const sendFrame = useCallback((
     base64: string, 
     width: number, 
@@ -271,6 +292,11 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     if (inFlightFrameRef.current) return; // Drop frame to avoid backpressure
 
     inFlightFrameRef.current = true;
+    if (inFlightTimeoutRef.current) clearTimeout(inFlightTimeoutRef.current);
+    inFlightTimeoutRef.current = window.setTimeout(() => {
+      inFlightFrameRef.current = false;
+    }, 1500);
+
     const msg: ClientFrameMessage = {
       type: 'frame',
       frame_id: Date.now(),

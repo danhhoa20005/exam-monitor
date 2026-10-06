@@ -85,7 +85,7 @@ def get_ready():
     yolo_exists = custom_exists or pose_model_exists
     pose_exists = os.path.exists(settings.POSE_MODEL_PATH) or pose_model_exists
     
-    active_path = str(settings.YOLO_MODEL_PATH if custom_exists else settings.YOLO_POSE_MODEL_PATH)
+    active_path = str(settings.YOLO_POSE_MODEL_PATH if pose_model_exists else settings.YOLO_MODEL_PATH)
     sha256 = None
     if os.path.exists(active_path):
         try:
@@ -284,17 +284,20 @@ async def websocket_session_endpoint(websocket: WebSocket, session_id: str):
                 session.last_activity_time = time.time()
                 
                 # Execute inference in dedicated thread executor to avoid blocking async event loop
-                frame_result = await loop.run_in_executor(
-                    session.executor,
-                    session.pipeline.process_frame,
-                    msg.get("frame_id", 0),
-                    msg.get("captured_at_ms", int(time.time() * 1000)),
-                    msg.get("width", 640),
-                    msg.get("height", 480),
-                    msg.get("jpeg_base64", "")
-                )
+                try:
+                    frame_result = await loop.run_in_executor(
+                        session.executor,
+                        session.pipeline.process_frame,
+                        msg.get("frame_id", 0),
+                        msg.get("captured_at_ms", int(time.time() * 1000)),
+                        msg.get("width", 640),
+                        msg.get("height", 480),
+                        msg.get("jpeg_base64", "")
+                    )
 
-                await websocket.send_text(frame_result.model_dump_json())
+                    await websocket.send_text(frame_result.model_dump_json())
+                except Exception as frame_err:
+                    print(f"[WARN] Error processing frame {msg.get('frame_id')}: {frame_err}")
 
             elif msg.get("type") == "ping":
                 await websocket.send_json({"type": "pong", "timestamp": int(time.time() * 1000)})
