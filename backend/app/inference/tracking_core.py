@@ -26,31 +26,45 @@ class SessionInferencePipeline:
         self.pose_engine = PoseBehaviorEngine()
         self.event_manager = EventManager(session_id)
         self.yolo_model = None
+        self.is_pose_model = False
         self.is_custom_student_model = False
         self._init_yolo()
 
     def _init_yolo(self):
-        """Initialize YOLOv8 detector from best.pt or default weights."""
-        model_path = str(settings.YOLO_MODEL_PATH)
+        """Initialize YOLO11-Pose detector (from dyingangell/Cheating-detection-YOLO) or custom weights."""
+        pose_model_path = str(settings.YOLO_POSE_MODEL_PATH)
+        custom_model_path = str(settings.YOLO_MODEL_PATH)
         fallback_path = str(settings.FALLBACK_YOLO_PATH)
 
         target_path = None
-        if os.path.exists(model_path):
-            target_path = model_path
+        if os.path.exists(custom_model_path):
+            target_path = custom_model_path
             self.is_custom_student_model = True
-            print(f"[OK] Loading custom trained YOLO model: {model_path}")
+            print(f"[OK] Loading custom trained YOLO model: {custom_model_path}")
+        elif os.path.exists(pose_model_path):
+            target_path = pose_model_path
+            self.is_pose_model = True
+            print(f"[OK] Loading YOLO11-Pose model: {pose_model_path}")
         elif os.path.exists(fallback_path):
             target_path = fallback_path
             print(f"[INFO] Using fallback YOLO model: {fallback_path}")
         else:
-            print("[INFO] Model best.pt not found yet. Ready for model drop-in. Will use mock/fallback detector.")
-            target_path = None
+            print(f"[INFO] Downloading YOLO11-Pose weights to {pose_model_path}...")
+            try:
+                from models.download_models import download_yolo_pose_model
+                download_yolo_pose_model()
+                if os.path.exists(pose_model_path):
+                    target_path = pose_model_path
+                    self.is_pose_model = True
+            except Exception as dl_err:
+                print(f"[WARN] Could not auto-download pose model: {dl_err}")
 
         if target_path:
             try:
                 from ultralytics import YOLO
                 self.yolo_model = YOLO(target_path)
-                print(f"[OK] YOLOv8 model loaded into memory successfully. Classes: {self.yolo_model.names}")
+                self.is_pose_model = getattr(self.yolo_model, 'task', '') == 'pose' or 'pose' in str(target_path).lower()
+                print(f"[OK] Model loaded into memory successfully: {target_path} (is_pose={self.is_pose_model}, classes={self.yolo_model.names})")
             except Exception as e:
                 print(f"[WARN] Failed to load YOLO from {target_path}: {e}")
                 self.yolo_model = None
@@ -64,7 +78,7 @@ class SessionInferencePipeline:
         jpeg_base64: str
     ) -> FrameResult:
         """
-        Decode JPEG, run YOLO detection, track candidates, analyze posture, and update events.
+        Decode JPEG, run YOLO-Pose detection, track candidates, analyze posture, and update events.
         """
         t0 = time.perf_counter()
 
@@ -76,7 +90,6 @@ class SessionInferencePipeline:
             if frame_bgr is None:
                 raise ValueError("cv2.imdecode returned None")
         except Exception as e:
-            # Return empty result on decode failure
             return FrameResult(
                 session_id=self.session_id,
                 frame_id=frame_id,
@@ -91,25 +104,31 @@ class SessionInferencePipeline:
 
         h_frame, w_frame = frame_bgr.shape[:2]
 
-        # 2. YOLOv8 Detection & ByteTrack
+        # 2. YOLO11-Pose Detection & ByteTrack
         t_yolo_start = time.perf_counter()
-        detections: List[Tuple[int, Tuple[float, float, float, float], float, str]] = []
+        detections: List[Tuple[int, Tuple[float, float, float, float], float, str, Optional[Any]]] = []
 
         if self.yolo_model is not None:
             try:
-                # Run YOLO tracking with ByteTrack config
                 bytetrack_cfg = str(settings.BYTETRACK_CONFIG_PATH) if os.path.exists(settings.BYTETRACK_CONFIG_PATH) else "bytetrack.yaml"
                 results = self.yolo_model.track(
                     frame_bgr,
                     persist=True,
                     tracker=bytetrack_cfg,
                     verbose=False,
-                    conf=0.35
+                    conf=0.30
                 )
 
                 if results and len(results) > 0 and results[0].boxes is not None:
-                    boxes = results[0].boxes
-                    for box in boxes:
+                    res = results[0]
+                    boxes = res.boxes
+                    has_kpts = (
+                        res.keypoints is not None 
+                        and hasattr(res.keypoints, 'data') 
+                        and res.keypoints.data is not None
+                    )
+
+                    for i, box in enumerate(boxes):
                         cls_id = int(box.cls[0].item())
                         names = self.yolo_model.names
                         cls_name = names.get(cls_id, "") if isinstance(names, dict) else (
@@ -121,8 +140,8 @@ class SessionInferencePipeline:
                             "person", "student", "student_v1", "candidate", "human", "attentive", "inattentive", "hand_raised"
                         } or cls_id in (0, 1, 2)
 
-                        if is_single_class or is_person_class or cls_id == 0:
-                            track_id = int(box.id[0].item()) if box.id is not None else 1
+                        if is_single_class or is_person_class or cls_id == 0 or self.is_pose_model:
+                            track_id = int(box.id[0].item()) if box.id is not None else (i + 1)
                             conf = float(box.conf[0].item())
                             xyxy = box.xyxy[0].tolist()
                             
@@ -132,14 +151,20 @@ class SessionInferencePipeline:
                                 xyxy[2] / float(w_frame),
                                 xyxy[3] / float(h_frame)
                             )
-                            detections.append((track_id, norm_bbox, conf, normalized_name))
+
+                            kpts = None
+                            if has_kpts and len(res.keypoints.data) > i:
+                                try:
+                                    kpts = res.keypoints.data[i].cpu().numpy()
+                                except Exception:
+                                    kpts = None
+
+                            detections.append((track_id, norm_bbox, conf, normalized_name, kpts))
             except Exception as e:
                 print(f"[WARN] YOLO tracking error: {e}")
         else:
-            # Geometric/Face Fallback detection if PyTorch/YOLO not yet loaded
-            # Detects central student ROI
             center_bbox = (0.25, 0.20, 0.75, 0.90)
-            detections.append((1, center_bbox, 0.90, "attentive"))
+            detections.append((1, center_bbox, 0.90, "attentive", None))
 
         t_yolo_end = time.perf_counter()
         yolo_ms = int((t_yolo_end - t_yolo_start) * 1000)
@@ -150,7 +175,7 @@ class SessionInferencePipeline:
         active_track_ids = [d[0] for d in detections]
         self.pose_engine.remove_lost_tracks(active_track_ids)
 
-        for track_id, bbox_norm, conf, act_name in detections:
+        for track_id, bbox_norm, conf, act_name, kpts in detections:
             res = self.pose_engine.process_student_roi(
                 full_frame_bgr=frame_bgr,
                 bbox_xyxy_norm=bbox_norm,
@@ -158,6 +183,7 @@ class SessionInferencePipeline:
                 frame_id=frame_id,
                 captured_at_ms=captured_at_ms,
                 detection_conf=conf,
+                person_kpts=kpts,
                 activity=act_name if act_name in ["attentive", "hand_raised", "inattentive"] else "attentive"
             )
             track_results.append(res)

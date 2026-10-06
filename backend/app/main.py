@@ -79,15 +79,18 @@ def get_health():
 
 @app.get("/ready", response_model=ReadyResponse)
 def get_ready():
-    """Readiness probe: checks model presence and SHA-256."""
-    yolo_exists = os.path.exists(settings.YOLO_MODEL_PATH)
-    pose_exists = os.path.exists(settings.POSE_MODEL_PATH)
+    """Readiness probe: checks YOLO11-Pose model presence."""
+    custom_exists = os.path.exists(settings.YOLO_MODEL_PATH)
+    pose_model_exists = os.path.exists(settings.YOLO_POSE_MODEL_PATH)
+    yolo_exists = custom_exists or pose_model_exists
+    pose_exists = os.path.exists(settings.POSE_MODEL_PATH) or pose_model_exists
     
+    active_path = str(settings.YOLO_MODEL_PATH if custom_exists else settings.YOLO_POSE_MODEL_PATH)
     sha256 = None
-    if yolo_exists:
+    if os.path.exists(active_path):
         try:
             from models.download_models import calculate_sha256
-            sha256 = calculate_sha256(str(settings.YOLO_MODEL_PATH))
+            sha256 = calculate_sha256(active_path)
         except Exception:
             pass
 
@@ -97,8 +100,9 @@ def get_ready():
         pose_loaded=pose_exists,
         model_sha256=sha256,
         version=settings.APP_VERSION,
-        weights_path=str(settings.YOLO_MODEL_PATH)
+        weights_path=active_path
     )
+
 
 # ----------------- Authentication -----------------
 
@@ -197,7 +201,7 @@ def update_event_decision(session_id: str, event_id: str, req: UpdateDecisionReq
     return updated
 
 @app.get("/api/sessions/{session_id}/export")
-def export_session_report(session_id: str, format: str = Query("csv", regex="^(csv|json)$")):
+def export_session_report(session_id: str, format: str = Query("csv", pattern="^(csv|json)$")):
     """Export exam session report in CSV or JSON format."""
     session = session_manager.get_session(session_id)
     if not session:
@@ -247,9 +251,9 @@ async def websocket_session_endpoint(websocket: WebSocket, session_id: str):
             "session_id": session_id,
             "status": "ACTIVE",
             "model_info": {
-                "detector": "YOLOv8",
+                "detector": "YOLO11-Pose",
                 "tracker": "ByteTrack",
-                "pose_estimator": "MediaPipe Pose Landmarker"
+                "pose_estimator": "YOLO11 Cheating Detection (dyingangell/Cheating-detection-YOLO)"
             }
         })
     except WebSocketDisconnect:
