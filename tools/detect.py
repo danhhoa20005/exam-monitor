@@ -17,11 +17,33 @@ from datetime import datetime
 from ultralytics import YOLO
 
 
+def resolve_model_path(user_model_path=None):
+    if user_model_path and os.path.exists(user_model_path):
+        return user_model_path
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, ".."))
+    
+    candidates = [
+        user_model_path,
+        os.path.join(project_root, "backend", "models", "best.pt"),
+        os.path.join(project_root, "backend", "models", "yolo11n-pose.pt"),
+        os.path.join(project_root, "backend", "models", "yolo11s-pose.pt"),
+        os.path.join(project_root, "backend", "models", "yolo11l-pose.pt"),
+        "backend/models/best.pt",
+        "backend/models/yolo11n-pose.pt",
+    ]
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    return user_model_path or "backend/models/best.pt"
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Classroom & Exam Activity Detection")
     parser.add_argument("--source", type=str, default="0",
                         help="Video source: 0=webcam, or video file path")
-    parser.add_argument("--model", type=str, default="backend/models/best.pt",
+    parser.add_argument("--model", type=str, default=None,
                         help="YOLO model weights path")
     parser.add_argument("--conf", type=float, default=0.45,
                         help="Confidence threshold (0.0-1.0)")
@@ -88,8 +110,9 @@ def draw_detections(frame, results, writer):
 
 def main():
     args = parse_args()
-    print(f"Loading model: {args.model}")
-    model = YOLO(args.model)
+    model_path = resolve_model_path(args.model)
+    print(f"Loading model: {model_path}")
+    model = YOLO(model_path)
     print("Model loaded successfully!")
 
     source = int(args.source) if args.source.isdigit() else args.source

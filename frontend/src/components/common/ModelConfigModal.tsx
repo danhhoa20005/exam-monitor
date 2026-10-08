@@ -49,7 +49,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                 Cài Đặt Kết Nối AI Model
               </h2>
               <p className="text-xs text-slate-400">
-                Cấu hình WebSocket kết nối trực tiếp với YOLOv8m (`best.pt`) & MediaPipe
+                Cấu hình WebSocket kết nối trực tiếp với YOLO11-Pose & Anti-Cheat Engine
               </p>
             </div>
           </div>
@@ -103,10 +103,10 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-200 block">
-                      YOLOv8n (`best.pt`) + MediaPipe Pose
+                      YOLO11-Pose (`yolo11l-pose.pt` / `best.pt`)
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      Nhận diện thí sinh, giơ tay & theo dõi góc lệch đầu 3D
+                      Cheating Detection YOLO (Nose Offset, EMA Auto-Calibration, Hazard Meter)
                     </span>
                   </div>
                 </div>
@@ -284,7 +284,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
               <div className="bg-blue-950/30 border border-blue-800/60 rounded-xl p-3 text-blue-200 text-xs flex items-start gap-2">
                 <Sparkles size={16} className="text-blue-400 shrink-0 mt-0.5" />
                 <p>
-                  Định dạng JSON gửi nhận giữa Frontend và Backend Python AI (`best.pt` YOLOv8 + MediaPipe).
+                  Định dạng JSON gửi nhận giữa Frontend và Backend Python AI (YOLO11-Pose Cheating Detection).
                 </p>
               </div>
 

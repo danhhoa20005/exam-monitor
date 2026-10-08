@@ -6,11 +6,19 @@ Usage:
     streamlit run tools/dashboard.py
 """
 
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
 import os
+import sys
 import glob
+
+try:
+    import streamlit as st
+    import pandas as pd
+    import matplotlib.pyplot as plt
+except ImportError as e:
+    print(f"ERROR: Missing dashboard dependency ({e}).")
+    print("Please install the required libraries with:")
+    print("    pip install streamlit pandas matplotlib")
+    sys.exit(1)
 
 
 def load_session(csv_path):
