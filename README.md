@@ -1,6 +1,6 @@
 # VisionGuard AI — Hệ Thống Giám Sát Phòng Thi Trực Tuyến Thông Minh
 
-Hệ thống giám sát tư thế thí sinh phòng thi thời gian thực thế hệ mới, kết hợp **YOLOv8**, **ByteTrack**, **MediaPipe Tasks Pose Landmarker** và giao diện **Cyberpunk Tactical HUD (React + Vite + TypeScript)**. Tối ưu hoàn hảo cho cả máy tính để bàn và thiết bị di động (Responsive).
+Hệ thống giám sát tư thế thí sinh phòng thi thời gian thực thế hệ mới, tích hợp model **YOLO11-Pose** (từ repo [dyingangell/Cheating-detection-YOLO](https://github.com/dyingangell/Cheating-detection-YOLO)), **ByteTrack**, bộ đo độ lệch tư thế đầu (Normalized Head Offset & Torso Angle), bộ tự động hiệu chuẩn mốc cá nhân (Auto-Calibration EMA), bộ lọc phân biệt cúi viết bài vs quay cóp, và giao diện **Cyberpunk Tactical HUD (React + Vite + TypeScript)**. Tối ưu hoàn hảo cho cả máy tính để bàn và thiết bị di động (Responsive).
 
 ---
 
@@ -22,9 +22,13 @@ Hệ thống giám sát tư thế thí sinh phòng thi thời gian thực thế 
 
 ## 🌟 Tính Năng Nổi Bật
 
-- **Realtime Multi-Person Tracking**: Định danh thí sinh liên tục bằng **ByteTrack** kết hợp **YOLOv8**.
-- **3D Head Pose & Skeletal Analysis**: Đo góc quay đầu Yaw ($\pm 35^\circ$) bằng thuật toán SolvePnP và 33 điểm mốc xương khớp MediaPipe.
-- **Thang Điểm Nghi Vấn (Hazard Meter 0 - 100)**: Tích hợp bộ lọc làm mịn thời gian (Temporal Smoothing) và phân loại vi phạm tức thì.
+- **YOLO11-Pose & Multi-Person Tracking**: Nhận diện người, theo dõi liên tục qua **ByteTrack** và trích xuất đồng thời 17 điểm mốc xương khớp (COCO Pose Keypoints) chỉ trong 1 lần suy luận duy nhất (Single Forward Pass).
+- **Thuật Toán Phát Hiện Gian Lận (dyingangell/Cheating-detection-YOLO)**:
+  - Chuẩn hoá toạ độ mũi theo độ rộng vai (`rel_nose_x`, `rel_nose_y`).
+  - Tự động lấy mốc tư thế cơ sở riêng cho từng thí sinh bằng giải thuật trung bình động luỹ thừa (`EMA Calibration`).
+  - Phân tách độ lệch ngang (`lateral_dev` - quay nhìn bài thí sinh bên cạnh) và độ lệch dọc (`depth_dev` - cúi xuống viết bài), triệt tiêu báo động giả khi thí sinh cúi làm bài (`depth suppression`).
+  - Bù trừ góc chụp nghiêng / camera gắn trần (`foreshortening compensation`).
+- **Thang Điểm Nghi Vấn (Hazard Meter 0 - 100)**: Tích luỹ điểm nghi vấn theo thời gian (`score_s`), tự động giảm điểm khi trở về bình thường, phân loại trạng thái: `CALIBRATING`, `WITHIN_THRESHOLDS`, `OBSERVING`, `REVIEW`.
 - **Tải Video Trực Tiếp (Video Test Suite)**: Cho phép tải file video (.mp4, .webm, .mov) lên thẳng Web HUD để giả lập bài thi mà không cần camera.
 - **Cloudflare Tunnel Tích Hợp Sẵn**: 1 lệnh sinh link HTTPS công khai để giám thị theo dõi trực tiếp từ điện thoại hoặc máy tính bảng ở bất cứ đâu.
 - **Giao diện Tactical HUD đỉnh cao**: Tối ưu hiển thị responsive, chế độ toàn màn hình, điều chỉnh FPS quét linh hoạt (15/30/60 FPS).
@@ -54,13 +58,15 @@ exam-monitor/
 │   │   ├── sessions.py           # Quản lý luồng xử lý frame tuần tự
 │   │   ├── protocol.py           # Pydantic Schemas dữ liệu chuẩn
 │   │   └── inference/
-│   │       ├── tracking_core.py  # YOLOv8 + ByteTrack
-│   │       ├── pose_behavior.py  # MediaPipe Pose + Bộ lọc góc quay
+│   │       ├── tracking_core.py  # YOLO11-Pose + ByteTrack
+│   │       ├── pose_behavior.py  # Thuật toán Cheating-detection-YOLO (dyingangell)
 │   │       └── pnp_head_pose.py  # Ước lượng tư thế 3D SolvePnP
-│   ├── models/                   # Trọng số best.pt và pose_landmarker_lite.task
+│   ├── models/                   # Trọng số yolo11n-pose.pt, yolo11s-pose.pt, yolo11l-pose.pt, best.pt
 │   ├── requirements.txt
 │   └── Dockerfile
 │
+├── tools/
+│   └── detect_cheating.py        # Công cụ chạy thử nghiệm trực tiếp camera/video với YOLO11-Pose HUD
 ├── scripts/
 │   ├── start-ai-server.sh        # Khởi động Backend + Cloudflare Tunnel tự động
 │   ├── start_backend.sh          # Khởi động Backend độc lập
@@ -103,11 +109,11 @@ exam-monitor/
    cd ..
    ```
 
-3. **Tải file trọng số AI Pose Landmarker:**
+3. **Tải file trọng số AI Model (YOLO11-Pose):**
    ```bash
    python3 backend/models/download_models.py
    ```
-   *(File `best.pt` của YOLO nếu có hãy đặt vào thư mục `backend/models/best.pt`)*
+   *(Trọng số `yolo11n-pose.pt`, `yolo11s-pose.pt`, `yolo11l-pose.pt` được lưu tự động trong `backend/models/`. Hệ thống cũng hỗ trợ file custom `best.pt` nếu có).*
 
 ---
 

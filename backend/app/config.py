@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     MAX_MESSAGE_BYTES: int = 1048576           # 1 MB max WS frame payload
     
     class Config:
-        env_file = ".env"
+        env_file = (str(BASE_DIR / ".env"), ".env")
         extra = "ignore"
 
 settings = Settings()
