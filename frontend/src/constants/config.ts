@@ -21,7 +21,7 @@ export function setStoredApiUrl(url: string): void {
   }
 }
 
-export const CLOUDFLARE_TUNNEL_URL = 'https://wendy-recordings-clean-industries.trycloudflare.com';
+export const CLOUDFLARE_TUNNEL_URL = 'https://snowboard-ceiling-bookmark-crown.trycloudflare.com';
 export const LOCAL_BACKEND_URL = 'http://localhost:8000';
 
 export function getEffectiveApiBaseUrl(): string {

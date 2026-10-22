@@ -158,7 +158,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      const tunnelUrl = 'https://wendy-recordings-clean-industries.trycloudflare.com';
+                      const tunnelUrl = 'https://snowboard-ceiling-bookmark-crown.trycloudflare.com';
                       const wsBase = tunnelUrl.replace(/^http/, 'ws');
                       setFormState(prev => ({
                         ...prev,
