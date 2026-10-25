@@ -292,7 +292,8 @@ async def websocket_session_endpoint(websocket: WebSocket, session_id: str):
                         msg.get("captured_at_ms", int(time.time() * 1000)),
                         msg.get("width", 640),
                         msg.get("height", 480),
-                        msg.get("jpeg_base64", "")
+                        msg.get("jpeg_base64", ""),
+                        msg.get("source_id")
                     )
 
                     await websocket.send_text(frame_result.model_dump_json())

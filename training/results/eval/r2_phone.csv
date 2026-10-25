@@ -1,0 +1,75 @@
+file,split,left,right,mode,left_flagged,right_flagged,n_review,max_score,onsets,duration_s,proc_s
+v_c1_s1_s2.MOV,dev,phone,phone,rules,1,0,2,80,5.1s#1L 9.0s#1L,12.6,17.0
+v_c1_s1_s2.MOV,dev,phone,phone,ai,1,0,2,80,5.1s#1L 9.0s#1L,12.6,18.2
+v_c1_s1_v1.MOV,dev,phone,not_cheating,rules,1,0,1,80,8.6s#1L,12.6,15.2
+v_c1_s1_v1.MOV,dev,phone,not_cheating,ai,1,0,1,80,8.6s#1L,12.6,17.8
+v_c1_s1_v2.MOV,dev,phone,not_cheating,rules,1,0,1,80,9.6s#1L,13.1,13.0
+v_c1_s1_v2.MOV,dev,phone,not_cheating,ai,1,0,1,80,9.6s#1L,13.1,9.3
+v_c1_s2.MOV,dev,not_cheating,phone,rules,0,0,0,0,,14.1,9.1
+v_c1_s2.MOV,dev,not_cheating,phone,ai,0,0,0,0,,14.1,10.2
+v_c1_s3.MOV,dev,phone,not_cheating,rules,0,0,0,0,,8.8,5.9
+v_c1_s3.MOV,dev,phone,not_cheating,ai,0,0,0,0,,8.8,6.5
+v_c1_s3_s4.MOV,dev,phone,phone,rules,1,1,2,80,4.4s#1R 5.2s#2L,7.5,5.1
+v_c1_s3_s4.MOV,dev,phone,phone,ai,1,1,2,80,4.4s#1R 5.2s#2L,7.5,8.1
+v_c1_s4.MOV,dev,not_cheating,phone,rules,0,1,2,80,3.9s#1R 6.1s#1R,9.2,11.1
+v_c1_s4.MOV,dev,not_cheating,phone,ai,0,1,2,80,3.9s#1R 6.1s#1R,9.2,11.9
+v_c1_s5.MOV,test,phone,not_cheating,rules,1,0,2,80,1.7s#2L 4.4s#2L,8.9,10.6
+v_c1_s5.MOV,test,phone,not_cheating,ai,1,0,2,80,1.7s#2L 4.4s#2L,8.9,12.1
+v_c1_s5_s6.MOV,test,phone,phone,rules,1,1,2,80,4.3s#1R 5.6s#2L,10.1,12.0
+v_c1_s5_s6.MOV,test,phone,phone,ai,1,1,2,80,4.3s#1R 5.6s#2L,10.1,13.7
+v_c1_s6.MOV,test,not_cheating,phone,rules,0,0,0,0,,7.8,9.4
+v_c1_s6.MOV,test,not_cheating,phone,ai,0,0,0,0,,7.8,10.3
+v_c1_s7.MOV,test,phone,not_cheating,rules,1,0,3,80,1.8s#2L 5.7s#2L 9.4s#2L,10.1,12.1
+v_c1_s7.MOV,test,phone,not_cheating,ai,1,0,3,80,1.8s#2L 5.7s#2L 9.4s#2L,10.1,13.4
+v_c1_s7_s8.MOV,test,phone,phone,rules,1,1,3,80,1.7s#2L 3.4s#1R 10.8s#2L,11.2,13.4
+v_c1_s7_s8.MOV,test,phone,phone,ai,1,1,3,80,1.7s#2L 3.4s#1R 10.8s#2L,11.2,15.0
+v_c1_s8.MOV,test,not_cheating,phone,rules,1,1,3,80,3.6s#1R 5.5s#2L 8.2s#2L,8.4,9.9
+v_c1_s8.MOV,test,not_cheating,phone,ai,1,1,3,80,3.6s#1R 5.5s#2L 8.2s#2L,8.4,7.0
+v_c2_s1_s2.MOV,dev,exchange_paper,exchange_paper,rules,0,0,0,0,,6.5,4.5
+v_c2_s1_s2.MOV,dev,exchange_paper,exchange_paper,ai,0,0,0,0,,6.5,4.9
+v_c2_s3_s4.MOV,dev,exchange_paper,exchange_paper,rules,0,0,0,0,,4.8,3.4
+v_c2_s3_s4.MOV,dev,exchange_paper,exchange_paper,ai,0,0,0,0,,4.8,3.6
+v_c2_s5_s6.MOV,test,exchange_paper,exchange_paper,rules,1,1,3,80,2.6s#2L 7.5s#2L 8.4s#1R,11.0,7.3
+v_c2_s5_s6.MOV,test,exchange_paper,exchange_paper,ai,1,1,3,80,2.6s#2L 7.5s#2L 8.4s#1R,11.0,7.9
+v_c2_s7_s8.MOV,test,exchange_paper,exchange_paper,rules,1,0,2,80,1.7s#2L 4.8s#2L,8.8,6.5
+v_c2_s7_s8.MOV,test,exchange_paper,exchange_paper,ai,1,0,2,80,1.7s#2L 4.8s#2L,8.8,6.9
+v_c3_s1.MOV,dev,look_at_paper,not_cheating,rules,1,0,1,80,4.0s#2L,7.1,4.8
+v_c3_s1.MOV,dev,look_at_paper,not_cheating,ai,1,0,1,80,4.0s#2L,7.1,5.5
+v_c3_s2.MOV,dev,not_cheating,look_at_paper,rules,0,0,0,0,,7.2,5.3
+v_c3_s2.MOV,dev,not_cheating,look_at_paper,ai,0,0,0,0,,7.2,5.7
+v_c3_s3.MOV,dev,look_at_paper,not_cheating,rules,1,0,1,80,4.0s#2L,8.9,6.0
+v_c3_s3.MOV,dev,look_at_paper,not_cheating,ai,1,0,1,80,4.0s#2L,8.9,8.2
+v_c3_s4.MOV,dev,not_cheating,look_at_paper,rules,0,1,2,80,3.2s#1R 9.3s#1R,10.1,14.6
+v_c3_s4.MOV,dev,not_cheating,look_at_paper,ai,0,1,2,80,3.2s#1R 9.3s#1R,10.1,12.0
+v_c3_s5.MOV,test,look_at_paper,not_cheating,rules,1,0,2,80,3.2s#2L 5.3s#2L,9.6,6.7
+v_c3_s5.MOV,test,look_at_paper,not_cheating,ai,1,0,2,80,3.2s#2L 5.3s#2L,9.6,14.0
+v_c3_s6.MOV,test,not_cheating,look_at_paper,rules,1,1,3,80,1.7s#1L 3.5s#2R 7.7s#2R,10.3,15.2
+v_c3_s6.MOV,test,not_cheating,look_at_paper,ai,1,1,3,80,1.7s#1L 3.5s#2R 7.7s#2R,10.3,16.8
+v_c3_s7.MOV,test,look_at_paper,not_cheating,rules,1,0,2,80,3.8s#2L 7.7s#2L,9.5,13.8
+v_c3_s7.MOV,test,look_at_paper,not_cheating,ai,1,0,2,80,3.8s#2L 7.7s#2L,9.5,15.2
+v_c3_s8.MOV,test,not_cheating,look_at_paper,rules,0,1,1,80,3.2s#1R,10.6,15.1
+v_c3_s8.MOV,test,not_cheating,look_at_paper,ai,0,1,1,80,3.2s#1R,10.6,17.3
+v_c4_s1.MOV,dev,cheat_sheet,not_cheating,rules,0,0,0,0,,7.0,10.2
+v_c4_s1.MOV,dev,cheat_sheet,not_cheating,ai,0,0,0,0,,7.0,11.6
+v_c4_s2.MOV,dev,not_cheating,cheat_sheet,rules,0,1,1,80,5.1s#1R,8.2,11.7
+v_c4_s2.MOV,dev,not_cheating,cheat_sheet,ai,0,1,1,80,5.1s#1R,8.2,13.2
+v_c4_s3.MOV,dev,cheat_sheet,not_cheating,rules,0,0,0,0,,7.5,10.9
+v_c4_s3.MOV,dev,cheat_sheet,not_cheating,ai,0,0,0,0,,7.5,11.8
+v_c4_s4.MOV,dev,not_cheating,cheat_sheet,rules,0,1,1,80,3.4s#1R,9.7,14.2
+v_c4_s4.MOV,dev,not_cheating,cheat_sheet,ai,0,1,1,80,3.4s#1R,9.7,15.6
+v_c4_s5.MOV,test,cheat_sheet,not_cheating,rules,1,0,2,80,1.7s#2L 6.7s#2L,8.6,12.7
+v_c4_s5.MOV,test,cheat_sheet,not_cheating,ai,1,0,2,80,1.7s#2L 6.7s#2L,8.6,13.8
+v_c4_s6.MOV,test,not_cheating,cheat_sheet,rules,1,0,1,80,1.7s#2L,8.4,12.5
+v_c4_s6.MOV,test,not_cheating,cheat_sheet,ai,1,0,1,80,1.7s#2L,8.4,13.6
+v_c4_s7.MOV,test,cheat_sheet,not_cheating,rules,0,0,0,0,,11.2,16.2
+v_c4_s7.MOV,test,cheat_sheet,not_cheating,ai,0,0,0,0,,11.2,18.3
+v_c4_s8.MOV,test,not_cheating,cheat_sheet,rules,0,1,1,80,5.7s#1R,8.0,11.7
+v_c4_s8.MOV,test,not_cheating,cheat_sheet,ai,0,1,1,80,5.7s#1R,8.0,13.1
+v_c5_s1_s2.MOV,dev,not_cheating,not_cheating,rules,0,0,0,0,,8.3,11.9
+v_c5_s1_s2.MOV,dev,not_cheating,not_cheating,ai,0,0,0,0,,8.3,13.6
+v_c5_s3_s4.MOV,dev,not_cheating,not_cheating,rules,0,0,0,0,,12.2,17.4
+v_c5_s3_s4.MOV,dev,not_cheating,not_cheating,ai,0,0,0,0,,12.2,20.0
+v_c5_s5_s6.MOV,test,not_cheating,not_cheating,rules,0,0,0,0,,8.7,12.5
+v_c5_s5_s6.MOV,test,not_cheating,not_cheating,ai,0,0,0,0,,8.7,14.0
+v_c5_s7_s8.MOV,test,not_cheating,not_cheating,rules,1,0,2,80,1.8s#2L 8.3s#2L,11.2,16.2
+v_c5_s7_s8.MOV,test,not_cheating,not_cheating,ai,1,0,2,80,1.8s#2L 8.3s#2L,11.2,18.0

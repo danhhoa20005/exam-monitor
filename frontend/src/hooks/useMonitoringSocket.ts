@@ -24,8 +24,8 @@ export const DEFAULT_MODEL_CONFIG: ModelConnectionConfig = {
   sessionId: '',
   targetFps: 10,
   jpegQuality: 0.70,
-  targetWidth: 640,
-  targetHeight: 480,
+  targetWidth: 960,
+  targetHeight: 540,
   authTicket: ''
 };
 
@@ -285,7 +285,8 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     base64: string, 
     width: number, 
     height: number,
-    facingMode: CameraFacingMode = 'environment'
+    facingMode: CameraFacingMode = 'environment',
+    sourceId?: string
   ) => {
     if (!isCameraStreaming || !wsRef.current) return;
     if (wsRef.current.readyState !== WebSocket.OPEN) return;
@@ -305,7 +306,8 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
       width,
       height,
       facing_mode: facingMode,
-      jpeg_base64: base64
+      jpeg_base64: base64,
+      source_id: sourceId
     };
     wsRef.current.send(JSON.stringify(msg));
   }, [isCameraStreaming, modelConfig.sessionId]);

@@ -48,7 +48,28 @@ class Settings(BaseSettings):
     MODELS_DIR: Path = BASE_DIR / "models"
     CONFIG_DIR: Path = BASE_DIR / "config"
     YOLO_POSE_MODEL_PATH: Path = BASE_DIR / "models" / os.getenv("YOLO_POSE_MODEL", "yolo11l-pose.pt")
+    # 960 finds ~23 of the students in a 720p classroom shot vs ~16 at 640 (yolo11l-pose, ~22ms on RTX 4060)
+    YOLO_IMGSZ: int = int(os.getenv("YOLO_IMGSZ", "960"))
+    YOLO_CONF: float = float(os.getenv("YOLO_CONF", "0.25"))
     YOLO_MODEL_PATH: Path = BASE_DIR / "models" / "best.pt"
+    # Optional team-trained turn/normal crop classifier (training/train_turn_cls.py); skipped if the file is absent
+    TURN_CLS_MODEL_PATH: Path = BASE_DIR / "models" / os.getenv("TURN_CLS_MODEL", "turn_cls.pt")
+    TURN_CLS_EMA_ALPHA: float = float(os.getenv("TURN_CLS_EMA_ALPHA", "0.3"))   # per-track smoothing at ~10 FPS
+    TURN_CLS_THRESHOLD: float = float(os.getenv("TURN_CLS_THRESHOLD", "0.8"))   # smoothed P(turn) counted as turning
+    TURN_CLS_MARGIN: float = float(os.getenv("TURN_CLS_MARGIN", "0.5"))         # ...and this far above the student's own baseline
+
+    # Phone use: COCO detector 'cell phone' (class 67) next to a wrist keypoint, sustained.
+    # DS-03 dev: phone within 0.5 shoulder widths of a wrist in >=30% of frames for 7/9 phone users, 0/17 normal.
+    PHONE_MODEL_PATH: Path = BASE_DIR / "models" / os.getenv("PHONE_MODEL", "yolo11m.pt")
+    # highest detector confidence that keeps DS-03 dev phone recall (7/9); 0.2 let thick pens pass as phones
+    PHONE_CONF: float = float(os.getenv("PHONE_CONF", "0.3"))
+    PHONE_NEAR_WRIST_SW: float = 0.5        # max phone-centre to wrist distance, in shoulder widths
+    # DS-03 dev box shape: phones area/shoulder_w^2 p90 0.043, aspect p10 1.7; pen-holding fists area p10 0.053, aspect p50 1.1
+    PHONE_MAX_AREA_SW2: float = 0.05
+    PHONE_MIN_ASPECT: float = 1.3
+    PHONE_EMA_ALPHA: float = 0.3            # per-track smoothing of the per-frame "phone in hand" flag
+    PHONE_EMA_ON: float = 0.35              # smoothed flag above this counts as holding a phone
+    PHONE_TRIGGER_S: float = float(os.getenv("PHONE_TRIGGER_S", "1.0"))
     FALLBACK_YOLO_PATH: Path = BASE_DIR / "models" / "yolov8s.pt"
     POSE_MODEL_PATH: Path = BASE_DIR / "models" / "pose_landmarker_lite.task"
     BYTETRACK_CONFIG_PATH: Path = BASE_DIR / "config" / "bytetrack.yaml"

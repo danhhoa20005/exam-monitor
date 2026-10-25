@@ -65,12 +65,12 @@ export const MonitorPage: React.FC = () => {
     const intervalMs = Math.max(50, Math.floor(1000 / (modelConfig.targetFps || 5)));
     const interval = setInterval(() => {
       const frame = captureFrame(
-        modelConfig.targetWidth || 640, 
-        modelConfig.targetHeight || 480, 
+        modelConfig.targetWidth || 960,
+        modelConfig.targetHeight || 540,
         modelConfig.jpegQuality || 0.75
       );
       if (frame) {
-        sendFrame(frame.base64, frame.width, frame.height, frame.facingMode);
+        sendFrame(frame.base64, frame.width, frame.height, frame.facingMode, frame.sourceId);
       }
     }, intervalMs);
 

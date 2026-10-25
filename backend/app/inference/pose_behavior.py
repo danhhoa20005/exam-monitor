@@ -15,8 +15,8 @@ Features:
 """
 import os
 import math
-import time
 import statistics
+import time
 try:
     import numpy as np
     import cv2
@@ -27,7 +27,7 @@ from typing import Dict, List, Optional, Tuple, Any
 
 from app.config import settings
 from app.protocol import TrackStatus, BehaviorReason, TrackResult
-from app.inference.pnp_head_pose import estimate_head_pose_pnp, compute_delta_yaw
+from app.inference.pnp_head_pose import compute_delta_yaw
 from app.inference.pose_behavior_v2 import SuspicionScorer, TemporalSmoother
 
 class CandidateTrackState:
@@ -42,8 +42,12 @@ class CandidateTrackState:
         self.base_nose_y: Optional[float] = None
         self.baseline_nose_y: Optional[float] = None
         self.baseline_yaw: float = 0.0
-        self.calibration_yaws: List[float] = []
+        self.yaw_calib_samples: int = 0            # calibration samples where both ears were visible
+        self.baseline_torso_angle: Optional[float] = None
+        self.calibration_yaws: List[float] = []      # head yaw, only frames where it was measurable
+        self.calibration_nose_xs: List[float] = []
         self.calibration_nose_ys: List[float] = []
+        self.calibration_torso: List[float] = []
 
         # Temporal warning accumulator (seconds)
         self.score_s: float = 0.0
@@ -75,15 +79,27 @@ class CandidateTrackState:
         self.last_status: TrackStatus = "CALIBRATING"
         self.suspicion_score: int = 0
         self.suspicion_level: str = "NORMAL"
+        self.turn_prob_ema: Optional[float] = None   # smoothed P(turn) from the crop classifier
+        self.calibration_turn_probs: List[float] = []
+        self.turn_prob_base: Optional[float] = None  # this student's usual P(turn) (camera angle, seating)
+        self.phone_ema: float = 0.0                   # smoothed "phone next to a wrist" flag
+        self.phone_start_ms: Optional[int] = None
+        self.phone_duration_ms: int = 0
 
     def reset_calibration(self):
         """Reset ongoing calibration samples if track was interrupted."""
         self.calibration_yaws.clear()
+        self.calibration_nose_xs.clear()
         self.calibration_nose_ys.clear()
+        self.calibration_torso.clear()
+        self.calibration_turn_probs.clear()
+        self.turn_prob_base = None
         self.base_nose_x = None
         self.base_nose_y = None
         self.baseline_nose_y = None
         self.baseline_yaw = 0.0
+        self.yaw_calib_samples = 0
+        self.baseline_torso_angle = None
         self.calibration_samples = 0
         self.is_calibrated = False
 
@@ -98,6 +114,11 @@ class CandidateTrackState:
 
 class PoseBehaviorEngine:
     """Engine managing YOLO11-Pose keypoints and per-track cheating behavior evaluation."""
+    PROFILE_YAW_DEG = 60.0   # yaw at which the far ear typically disappears
+    # Measured at 960px: classroom CCTV shoulders p90 = 70px, DS-03 close-up p10 = 119px
+    PROFILE_MIN_SHOULDER_FRAC = 0.09
+    # |nose - eye midpoint| / eye distance on one-ear frames: DS-03 looks p10 = 0.13, cap-brim occlusion p90 = 0.04
+    PROFILE_MIN_EYE_OFFSET = 0.10
     def __init__(self):
         self.track_states: Dict[int, CandidateTrackState] = {}
         print("[OK] YOLO11-Pose Cheating Detection Engine initialized (dyingangell/Cheating-detection-YOLO).")
@@ -216,6 +237,54 @@ class PoseBehaviorEngine:
         return rel_nose_x, rel_nose_y, shoulder_w, float(angle_diff), True
 
     @staticmethod
+    def _head_yaw_from_face(person_kpts: Any, conf_min: float = 0.3, frame_w: Optional[float] = None) -> Optional[float]:
+        """
+        Head yaw proxy (degrees) from nose position relative to the ear midpoint.
+        COCO keypoints: 0: nose, 3: left_ear, 4: right_ear
+        The nose sits ~1.33x the half ear-distance in front of the ear axis, so
+        (nose_x - ear_mid_x) / half_ear_dist ~= 1.33 * tan(yaw). Unlike the
+        nose-vs-torso angle, this is insensitive to bowing the head over the desk.
+        When the head turns far enough, the far ear is occluded: that IS the turned-head
+        state, so a confident nose + one confident ear + one hidden ear returns a profile
+        yaw (+-PROFILE_YAW_DEG) on the side of the hidden ear. Ear confidence is only
+        trustworthy when the person is large enough (shoulders >= PROFILE_MIN_SHOULDER_FRAC
+        of frame_w): in wide classroom shots (~40px shoulders at 960px) ears flicker
+        between visible and hidden without any head movement.
+        Returns None when the nose or both ears are not visible.
+        """
+        if person_kpts is None or len(person_kpts) < 5:
+            return None
+        nose, l_ear, r_ear = person_kpts[0], person_kpts[3], person_kpts[4]
+        nose_c, l_c, r_c = [float(p[2]) if len(p) > 2 else 1.0 for p in (nose, l_ear, r_ear)]
+        if nose_c < conf_min:
+            return None
+        if min(l_c, r_c) < conf_min:
+            visible = l_ear if l_c >= r_c else r_ear
+            if max(l_c, r_c) < 0.5 or min(l_c, r_c) >= conf_min:
+                return None
+            if frame_w and len(person_kpts) > 6:
+                shoulder_w = abs(float(person_kpts[5][0]) - float(person_kpts[6][0]))
+                if shoulder_w < PoseBehaviorEngine.PROFILE_MIN_SHOULDER_FRAC * frame_w:
+                    return None
+            # An ear can also vanish behind a cap brim, hair or hand without any turn
+            # (DS-03 v_c5_s7_s8). Confirm with the eyes: a turned nose leaves the eye midpoint.
+            l_eye, r_eye = person_kpts[1], person_kpts[2]
+            eye_c = min(float(l_eye[2]), float(r_eye[2])) if len(l_eye) > 2 else 1.0
+            eye_dist = abs(float(l_eye[0]) - float(r_eye[0]))
+            if eye_c < conf_min or eye_dist < 1.0:
+                return None
+            eye_offset = (float(nose[0]) - (float(l_eye[0]) + float(r_eye[0])) / 2.0) / eye_dist
+            if abs(eye_offset) < PoseBehaviorEngine.PROFILE_MIN_EYE_OFFSET:
+                return None
+            # the nose has swung away from the visible ear, towards the hidden one
+            return PoseBehaviorEngine.PROFILE_YAW_DEG * (1.0 if float(nose[0]) > float(visible[0]) else -1.0)
+        half_ear = abs(float(l_ear[0]) - float(r_ear[0])) / 2.0
+        if half_ear < 1.0:
+            return None
+        ratio = (float(nose[0]) - (float(l_ear[0]) + float(r_ear[0])) / 2.0) / half_ear
+        return math.degrees(math.atan(0.75 * ratio))
+
+    @staticmethod
     def _bbox_iou_xyxy(a_xyxy, b_xyxy) -> float:
         """Calculate intersection over union of two xyxy bounding boxes."""
         try:
@@ -256,10 +325,14 @@ class PoseBehaviorEngine:
         captured_at_ms: int,
         detection_conf: float,
         person_kpts: Optional[Any] = None,
-        activity: str = "attentive"
+        activity: str = "attentive",
+        turn_prob: Optional[float] = None,
+        phone_seen: Optional[bool] = None
     ) -> TrackResult:
         """
         Process single tracked candidate using YOLO11-Pose keypoints and Cheating-detection-YOLO algorithm.
+        turn_prob: P(turn) from the team's crop classifier for this frame, if loaded.
+        phone_seen: whether the phone detector saw a phone next to this student's wrist, if loaded.
         """
         h_frame, w_frame = full_frame_bgr.shape[:2]
         x1_n, y1_n, x2_n, y2_n = bbox_xyxy_norm
@@ -268,6 +341,29 @@ class PoseBehaviorEngine:
         now_ts = captured_at_ms / 1000.0
         dt = max(0.0, min(0.25, float(now_ts - state.last_ts))) if state.last_ts > 0 else 0.05
         state.last_ts = now_ts
+
+        # Smooth the classifier output so a single-frame spike cannot start a turning episode
+        if turn_prob is not None:
+            if state.turn_prob_ema is None:
+                state.turn_prob_ema = float(turn_prob)
+            else:
+                a = settings.TURN_CLS_EMA_ALPHA
+                state.turn_prob_ema = (1.0 - a) * state.turn_prob_ema + a * float(turn_prob)
+        ai_turn_prob = round(state.turn_prob_ema, 2) if state.turn_prob_ema is not None else None
+
+        # Phone needs no posture baseline, so it is tracked from the first frame (also while calibrating)
+        if phone_seen is not None:
+            a = settings.PHONE_EMA_ALPHA
+            state.phone_ema = (1.0 - a) * state.phone_ema + a * (1.0 if phone_seen else 0.0)
+            if state.phone_ema > settings.PHONE_EMA_ON:
+                if state.phone_start_ms is None:
+                    state.phone_start_ms = captured_at_ms
+                state.phone_duration_ms = captured_at_ms - state.phone_start_ms
+            else:
+                state.phone_start_ms = None
+                state.phone_duration_ms = 0
+        phone_on = state.phone_ema > settings.PHONE_EMA_ON
+        phone_active = state.phone_duration_ms >= int(settings.PHONE_TRIGGER_S * 1000)
 
         # 1. Walking detection from bbox center displacement
         box_cx = (x1_n + x2_n) * 0.5 * w_frame
@@ -290,11 +386,8 @@ class PoseBehaviorEngine:
             )
 
         if not conf_ok or rel_nose_x is None:
-            # Fallback to SolvePnP geometric approach if direct keypoints missing
-            return self._fallback_pnp_processing(
-                full_frame_bgr, bbox_xyxy_norm, track_id, frame_id, captured_at_ms,
-                detection_conf, state, activity, w_frame, h_frame
-            )
+            # No reliable keypoints: report honestly instead of guessing a head pose from the bbox
+            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state, activity)
 
         # 3. Detect arm raised / hand actions (COCO: 5=ls, 6=rs, 9=lw, 10=rw)
         shoulder_tilt = 0.0
@@ -315,7 +408,8 @@ class PoseBehaviorEngine:
                 arm_raised = True
                 activity = "hand_raised"
 
-        yaw_deg = float(angle_diff) * (180.0 / math.pi)
+        head_yaw = self._head_yaw_from_face(person_kpts, conf_min=settings.LANDMARK_MIN_VISIBILITY, frame_w=w_frame)
+        torso_angle_deg = float(angle_diff) * (180.0 / math.pi)
 
         # Gap Continuity Check
         if state.last_valid_time_ms is not None:
@@ -324,20 +418,30 @@ class PoseBehaviorEngine:
                 state.reset_behavior_timers()
         state.last_valid_time_ms = captured_at_ms
 
-        # 4. Phase 1: Calibration (EMA Auto-Calibration per student)
+        # 4. Phase 1: Calibration. Baseline = per-quantity median of the calibration samples,
+        # so a glance covering less than half of the window (DS-03 v_c3_s2) cannot shift it.
         if not state.is_calibrated:
-            alpha = 0.10
-            if state.base_nose_x is None:
-                state.base_nose_x = float(rel_nose_x)
-                state.base_nose_y = float(rel_nose_y)
-                state.baseline_yaw = float(yaw_deg)
-            else:
-                state.base_nose_x = (1.0 - alpha) * state.base_nose_x + alpha * float(rel_nose_x)
-                state.base_nose_y = (1.0 - alpha) * state.base_nose_y + alpha * float(rel_nose_y)
-                state.baseline_yaw = (1.0 - alpha) * state.baseline_yaw + alpha * float(yaw_deg)
+            state.calibration_nose_xs.append(float(rel_nose_x))
+            state.calibration_nose_ys.append(float(rel_nose_y))
+            state.calibration_torso.append(torso_angle_deg)
+            if head_yaw is not None:
+                state.calibration_yaws.append(head_yaw)
+            if turn_prob is not None:
+                state.calibration_turn_probs.append(float(turn_prob))
 
             state.calibration_samples += 1
             if state.calibration_samples >= settings.CALIBRATION_SAMPLES:
+                state.base_nose_x = statistics.median(state.calibration_nose_xs)
+                state.base_nose_y = statistics.median(state.calibration_nose_ys)
+                # angles wrap at +-180: take the median of offsets from the first sample
+                ref = state.calibration_torso[0]
+                state.baseline_torso_angle = ref + statistics.median(
+                    compute_delta_yaw(a, ref) for a in state.calibration_torso)
+                if state.calibration_yaws:
+                    state.baseline_yaw = statistics.median(state.calibration_yaws)
+                state.yaw_calib_samples = len(state.calibration_yaws)
+                if state.calibration_turn_probs:
+                    state.turn_prob_base = statistics.median(state.calibration_turn_probs)
                 state.is_calibrated = True
 
             return TrackResult(
@@ -363,7 +467,11 @@ class PoseBehaviorEngine:
             )
 
         # 5. Phase 2: Posture Evaluation (dyingangell/Cheating-detection-YOLO)
-        delta_yaw = yaw_deg - state.baseline_yaw
+        # Head yaw only counts when both this frame and the calibration saw the ears
+        if head_yaw is not None and state.yaw_calib_samples > 0:
+            delta_yaw = compute_delta_yaw(head_yaw, state.baseline_yaw)
+        else:
+            delta_yaw = 0.0
         lateral_dev = abs(float(rel_nose_x) - float(state.base_nose_x))
         depth_dev = abs(float(rel_nose_y) - float(state.base_nose_y))
         dist = math.hypot(lateral_dev, depth_dev)
@@ -381,7 +489,7 @@ class PoseBehaviorEngine:
             effective_lateral = lateral_dev
 
         lateral_excess = max(0.0, effective_lateral - effective_base_radius)
-        abs_delta_angle = abs(math.radians(delta_yaw))
+        abs_delta_angle = abs(math.radians(compute_delta_yaw(torso_angle_deg, state.baseline_torso_angle)))
         angle_excess = max(0.0, abs_delta_angle - float(settings.POSE_ANGLE_BASE_RAD))
         combined_excess = max(float(lateral_excess), float(settings.POSE_ANGLE_WEIGHT) * float(angle_excess))
 
@@ -408,7 +516,12 @@ class PoseBehaviorEngine:
             state.score_s = max(0.0, state.score_s - dt * 0.2)
 
         # 6. Flag triggers and durations
-        is_turning = abs(delta_yaw) > settings.YAW_THRESHOLD_DEG or lateral_excess > 0.06
+        # The classifier only sees appearance: a student seated side-on to the camera looks "turned"
+        # all the time (classroom.mp4 P(turn)~0.9 while writing), so require a rise above their own baseline.
+        ai_turning = (state.turn_prob_ema is not None
+                      and state.turn_prob_ema > settings.TURN_CLS_THRESHOLD
+                      and state.turn_prob_ema - (state.turn_prob_base or 0.0) >= settings.TURN_CLS_MARGIN)
+        is_turning = abs(delta_yaw) > settings.YAW_THRESHOLD_DEG or lateral_excess > 0.06 or ai_turning
         is_bending = nose_drop_ratio > settings.NOSE_DROP_RATIO_THRESHOLD
 
         if is_turning:
@@ -436,20 +549,25 @@ class PoseBehaviorEngine:
         threshold = float(settings.POSE_WARN_THRESHOLD_S)
         reasons: List[BehaviorReason] = []
 
-        if state.score_s >= threshold or state.turning_duration_ms >= int(settings.REVIEW_TRIGGER_DURATION_S * 1000):
+        if (state.score_s >= threshold or state.turning_duration_ms >= int(settings.REVIEW_TRIGGER_DURATION_S * 1000)
+                or phone_active):
             status: TrackStatus = "REVIEW"
             if is_turning:
                 reasons.append("TURNING")
             if is_bending:
                 reasons.append("BENDING")
+            if phone_on:
+                reasons.append("PHONE")
             if not reasons:
-                reasons.append("TURNING")
-        elif state.score_s > 0.6 or suspicious or state.turning_duration_ms > 400:
+                reasons.append("PHONE" if phone_active else "TURNING")
+        elif state.score_s > 0.6 or suspicious or state.turning_duration_ms > 400 or phone_on:
             status = "OBSERVING"
             if is_turning:
                 reasons.append("TURNING")
             if is_bending:
                 reasons.append("BENDING")
+            if phone_on:
+                reasons.append("PHONE")
         else:
             status = "WITHIN_THRESHOLDS"
 
@@ -469,7 +587,7 @@ class PoseBehaviorEngine:
 
         state.suspicion_score = suspicion_score
         state.suspicion_level = suspicion_level
-        state.last_yaw = yaw_deg
+        state.last_yaw = head_yaw if head_yaw is not None else state.last_yaw
         state.last_nose_drop_ratio = nose_drop_ratio
         state.last_status = status
 
@@ -492,144 +610,8 @@ class PoseBehaviorEngine:
             suspicion_level=suspicion_level,
             shoulder_tilt=round(shoulder_tilt, 2),
             is_leaning=state.is_leaning,
-            turn_count_10s=turn_count_10s
-        )
-
-    def _fallback_pnp_processing(
-        self,
-        full_bgr: Any,
-        bbox_xyxy_norm: Tuple[float, float, float, float],
-        track_id: int,
-        frame_id: int,
-        captured_at_ms: int,
-        detection_conf: float,
-        state: CandidateTrackState,
-        activity: str,
-        w_frame: int,
-        h_frame: int
-    ) -> TrackResult:
-        """Fallback processing using SolvePnP if pose keypoints were not passed."""
-        x1_n, y1_n, x2_n, y2_n = bbox_xyxy_norm
-        pad_x = (x2_n - x1_n) * settings.ROI_EXPAND_RATIO
-        pad_y = (y2_n - y1_n) * settings.ROI_EXPAND_RATIO
-
-        x1_c = max(0, int((x1_n - pad_x) * w_frame))
-        y1_c = max(0, int((y1_n - pad_y) * h_frame))
-        x2_c = min(w_frame, int((x2_n + pad_x) * w_frame))
-        y2_c = min(h_frame, int((y2_n + pad_y) * h_frame))
-        w_c = x2_c - x1_c
-        h_c = y2_c - y1_c
-
-        if w_c < 20 or h_c < 20:
-            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state, activity)
-
-        center_x = x1_c + w_c * 0.5
-        top_y = y1_c + h_c * 0.18
-        nose_y = top_y + h_c * 0.12
-        chin_y = nose_y + h_c * 0.15
-
-        pts_2d = np.array([
-            [center_x, nose_y],
-            [center_x, chin_y],
-            [center_x - w_c * 0.15, top_y + h_c * 0.05],
-            [center_x + w_c * 0.15, top_y + h_c * 0.05],
-            [center_x - w_c * 0.10, nose_y + h_c * 0.08],
-            [center_x + w_c * 0.10, nose_y + h_c * 0.08]
-        ], dtype=np.float64)
-
-        pnp_result = estimate_head_pose_pnp(pts_2d, w_frame, h_frame)
-        if pnp_result is None:
-            return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state, activity)
-
-        yaw_deg, _, _ = pnp_result
-
-        if not state.is_calibrated:
-            state.calibration_yaws.append(yaw_deg)
-            state.calibration_nose_ys.append(float(nose_y))
-            state.calibration_samples += 1
-
-            if state.calibration_samples >= settings.CALIBRATION_SAMPLES:
-                state.baseline_yaw = statistics.median(state.calibration_yaws)
-                med_nose_y = float(statistics.median(state.calibration_nose_ys))
-                state.baseline_nose_y = med_nose_y
-                state.base_nose_y = med_nose_y
-                state.base_nose_x = 0.0
-                state.is_calibrated = True
-
-            return TrackResult(
-                track_id=track_id,
-                bbox_xyxy_norm=bbox_xyxy_norm,
-                detection_confidence=round(detection_conf, 2),
-                pose_valid=True,
-                pose_sample_frame=frame_id,
-                calibration_samples=state.calibration_samples,
-                status="CALIBRATING",
-                reasons=[],
-                yaw_delta_deg=0.0,
-                nose_drop_ratio=0.0,
-                turning_duration_ms=0,
-                bending_duration_ms=0,
-                progress_percent=round((state.calibration_samples / settings.CALIBRATION_SAMPLES) * 100.0, 1),
-                activity=activity,
-                suspicion_score=0,
-                suspicion_level="NORMAL",
-                shoulder_tilt=0.0,
-                is_leaning=False,
-                turn_count_10s=0
-            )
-
-        baseline_yaw = getattr(state, "baseline_yaw", 0.0) or 0.0
-        delta_yaw = compute_delta_yaw(yaw_deg, baseline_yaw)
-        base_nose_y = getattr(state, "baseline_nose_y", None)
-        if base_nose_y is None:
-            base_nose_y = getattr(state, "base_nose_y", None)
-        if base_nose_y is None:
-            base_nose_y = float(nose_y)
-        nose_drop_ratio = max(0.0, (nose_y - base_nose_y) / float(h_frame))
-        is_turning = abs(delta_yaw) > settings.YAW_THRESHOLD_DEG
-        is_bending = nose_drop_ratio > settings.NOSE_DROP_RATIO_THRESHOLD
-
-        if is_turning:
-            if not state.was_turning:
-                state.turn_events.append(captured_at_ms)
-            if state.turning_start_time_ms is None:
-                state.turning_start_time_ms = captured_at_ms
-            state.turning_duration_ms = captured_at_ms - state.turning_start_time_ms
-        else:
-            state.turning_start_time_ms = None
-            state.turning_duration_ms = 0
-        state.was_turning = is_turning
-
-        reasons = []
-        if state.turning_duration_ms >= int(settings.REVIEW_TRIGGER_DURATION_S * 1000):
-            status = "REVIEW"
-            reasons.append("TURNING")
-        elif state.turning_duration_ms > 300:
-            status = "OBSERVING"
-            reasons.append("TURNING")
-        else:
-            status = "WITHIN_THRESHOLDS"
-
-        return TrackResult(
-            track_id=track_id,
-            bbox_xyxy_norm=bbox_xyxy_norm,
-            detection_confidence=round(detection_conf, 2),
-            pose_valid=True,
-            pose_sample_frame=frame_id,
-            calibration_samples=settings.CALIBRATION_SAMPLES,
-            status=status,
-            reasons=reasons,
-            yaw_delta_deg=round(delta_yaw, 1),
-            nose_drop_ratio=round(nose_drop_ratio, 3),
-            turning_duration_ms=state.turning_duration_ms,
-            bending_duration_ms=0,
-            progress_percent=100.0,
-            activity=activity,
-            suspicion_score=80 if status == "REVIEW" else (35 if status == "OBSERVING" else 5),
-            suspicion_level="ALERT" if status == "REVIEW" else ("ATTENTION" if status == "OBSERVING" else "NORMAL"),
-            shoulder_tilt=0.0,
-            is_leaning=False,
-            turn_count_10s=0
+            turn_count_10s=turn_count_10s,
+            ai_turn_prob=ai_turn_prob
         )
 
     def _build_unavailable_result(

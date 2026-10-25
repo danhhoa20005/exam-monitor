@@ -13,7 +13,7 @@ TrackStatus = Literal[
     "POSE_UNAVAILABLE"
 ]
 
-BehaviorReason = Literal["TURNING", "BENDING"]
+BehaviorReason = Literal["TURNING", "BENDING", "PHONE"]
 
 ReviewDecision = Literal[
     "PENDING",
@@ -34,6 +34,7 @@ class ClientFrameMessage(BaseModel):
     width: int
     height: int
     jpeg_base64: str
+    source_id: Optional[str] = None   # new value = new camera/video -> backend resets tracks and baselines
 
 # Server to Client Messages
 class TrackResult(BaseModel):
@@ -56,6 +57,7 @@ class TrackResult(BaseModel):
     shoulder_tilt: Optional[float] = 0.0
     is_leaning: Optional[bool] = False
     turn_count_10s: Optional[int] = 0
+    ai_turn_prob: Optional[float] = None   # smoothed P(turn) from the team's crop classifier
 
 class FrameResult(BaseModel):
     type: Literal["result"] = "result"

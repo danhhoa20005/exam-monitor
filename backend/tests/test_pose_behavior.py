@@ -4,6 +4,21 @@ Unit tests for Pose Behavioral State Machine and Specification Rules.
 import numpy as np
 from app.inference.pose_behavior import PoseBehaviorEngine
 
+# Frontal student: nose above shoulder midpoint, ears either side of the nose
+KPTS = np.zeros((17, 3), dtype=np.float32)
+KPTS[0] = [320, 150, 0.9]
+KPTS[3] = [345, 140, 0.9]
+KPTS[4] = [295, 140, 0.9]
+KPTS[5] = [380, 220, 0.9]
+KPTS[6] = [260, 220, 0.9]
+
+def test_no_keypoints_is_pose_unavailable():
+    engine = PoseBehaviorEngine()
+    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    res = engine.process_student_roi(fake_frame, (0.2, 0.1, 0.8, 0.9), 100, 1, 200, 0.9)
+    assert res.status == "POSE_UNAVAILABLE"
+    assert res.suspicion_score == 0
+
 def test_calibration_and_rules():
     engine = PoseBehaviorEngine()
     fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -19,7 +34,8 @@ def test_calibration_and_rules():
             track_id=track_id,
             frame_id=f,
             captured_at_ms=t_ms,
-            detection_conf=0.9
+            detection_conf=0.9,
+            person_kpts=KPTS
         )
         assert res.status == "CALIBRATING"
         assert res.calibration_samples == f
@@ -31,7 +47,8 @@ def test_calibration_and_rules():
         track_id=track_id,
         frame_id=20,
         captured_at_ms=4000,
-        detection_conf=0.9
+        detection_conf=0.9,
+        person_kpts=KPTS
     )
     assert res_20.calibration_samples == 20
     assert res_20.status in ("WITHIN_THRESHOLDS", "CALIBRATING")
@@ -45,7 +62,7 @@ def test_gap_reset_timeout():
     # Calibrate with 20 samples
     for f in range(1, 21):
         engine.process_student_roi(
-            fake_frame, bbox_norm, track_id, f, f * 100, 0.9
+            fake_frame, bbox_norm, track_id, f, f * 100, 0.9, KPTS
         )
 
     state = engine.get_or_create_state(track_id)
@@ -58,7 +75,7 @@ def test_gap_reset_timeout():
 
     # Next sample arrives after 7000ms (gap = 3000ms > 2.5s)
     engine.process_student_roi(
-        fake_frame, bbox_norm, track_id, 25, 7000, 0.9
+        fake_frame, bbox_norm, track_id, 25, 7000, 0.9, KPTS
     )
 
     # Behavior timer must have been reset due to gap > 2.5s

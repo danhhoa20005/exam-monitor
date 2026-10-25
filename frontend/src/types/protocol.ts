@@ -24,6 +24,7 @@ export interface ClientFrameMessage {
   height: number;
   facing_mode: 'user' | 'environment';
   jpeg_base64: string; // JPEG encoded image base64
+  source_id?: string; // changes on every camera start / video load so the backend recalibrates
 }
 
 export interface ClientConfigMessage {

@@ -49,7 +49,12 @@ htmlcov/
 backend/models/*.pt
 backend/models/best.pt
 backend/models/*.task
+# Team-trained turn classifier (11 MB) ships with the repo; Ultralytics weights auto-download
+!backend/models/turn_cls.pt
 *.zip
+
+# Training workspace: datasets, training runs, eval videos (several GB) - see training/README.md
+training/workspace/
 model/
 *.log
 backend/*.log

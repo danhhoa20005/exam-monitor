@@ -98,9 +98,17 @@ export function useCamera() {
 
   const isSwitchingRef = useRef<boolean>(false);
 
+  // New id on every camera start / video load: the backend drops tracks and per-student
+  // baselines when it changes, otherwise a new video inherits the previous source's calibration
+  const sourceIdRef = useRef<string>('');
+  const newSource = () => {
+    sourceIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  };
+
   // Start Camera with specified facing mode or specific deviceId
   const startCamera = useCallback(async (modeToUse?: CameraFacingMode, specificDeviceId?: string) => {
     setError(null);
+    newSource();
     isSwitchingRef.current = true;
     const targetMode = modeToUse || facingMode;
 
@@ -258,6 +266,7 @@ export function useCamera() {
   const startVideoFile = useCallback(async (file: File) => {
     stopCamera();
     setError(null);
+    newSource();
     if (!videoRef.current) return false;
 
     try {
@@ -310,7 +319,7 @@ export function useCamera() {
     targetWidth: number = 640, 
     targetHeight: number = 480, 
     quality: number = 0.75
-  ): { base64: string; width: number; height: number; facingMode: CameraFacingMode } | null => {
+  ): { base64: string; width: number; height: number; facingMode: CameraFacingMode; sourceId: string } | null => {
     const video = videoRef.current;
     if (!video || !isStreaming || isSwitchingRef.current || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
       return null;
@@ -320,6 +329,10 @@ export function useCamera() {
       offscreenCanvasRef.current = document.createElement('canvas');
     }
     const canvas = offscreenCanvasRef.current;
+    // Keep the source aspect ratio: squashing 16:9 into 4:3 distorts the keypoint geometry the AI relies on
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      targetHeight = Math.round(targetWidth * video.videoHeight / video.videoWidth);
+    }
     if (canvas.width !== targetWidth) canvas.width = targetWidth;
     if (canvas.height !== targetHeight) canvas.height = targetHeight;
 
@@ -336,7 +349,8 @@ export function useCamera() {
         base64, 
         width: targetWidth, 
         height: targetHeight,
-        facingMode 
+        facingMode,
+        sourceId: sourceIdRef.current
       };
     } catch {
       return null;

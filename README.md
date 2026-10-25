@@ -58,12 +58,16 @@ exam-monitor/
 │   │   ├── sessions.py           # Quản lý luồng xử lý frame tuần tự
 │   │   ├── protocol.py           # Pydantic Schemas dữ liệu chuẩn
 │   │   └── inference/
-│   │       ├── tracking_core.py  # YOLO11-Pose + ByteTrack
-│   │       ├── pose_behavior.py  # Thuật toán Cheating-detection-YOLO (dyingangell)
-│   │       └── pnp_head_pose.py  # Ước lượng tư thế 3D SolvePnP
-│   ├── models/                   # Trọng số yolo11n-pose.pt, yolo11s-pose.pt, yolo11l-pose.pt, best.pt
+│   │       ├── tracking_core.py  # YOLO11-Pose + ByteTrack + phát hiện điện thoại, reset khi đổi nguồn video
+│   │       ├── pose_behavior.py  # Luật hành vi: quay đầu (mốc riêng từng người), cúi, điện thoại
+│   │       ├── turn_classifier.py# Model turn_cls của nhóm: phân loại quay đầu trên ảnh cắt từng người
+│   │       └── pnp_head_pose.py  # Hàm góc (chuẩn hoá ±180°)
+│   ├── models/                   # turn_cls.pt (nhóm train, có sẵn); yolo11l-pose.pt, yolo11m.pt tự tải
 │   ├── requirements.txt
 │   └── Dockerfile
+│
+├── training/                     # Chuẩn bị dữ liệu, train, đánh giá (xem training/README.md)
+│   └── results/                  # Nhật ký 10 vòng cải thiện, bảng đánh giá, biểu đồ train
 │
 ├── tools/
 │   └── detect_cheating.py        # Công cụ chạy thử nghiệm trực tiếp camera/video với YOLO11-Pose HUD
@@ -109,11 +113,10 @@ exam-monitor/
    cd ..
    ```
 
-3. **Tải file trọng số AI Model (YOLO11-Pose):**
-   ```bash
-   python3 backend/models/download_models.py
-   ```
-   *(Trọng số `yolo11n-pose.pt`, `yolo11s-pose.pt`, `yolo11l-pose.pt` được lưu tự động trong `backend/models/`. Hệ thống cũng hỗ trợ file custom `best.pt` nếu có).*
+3. **Trọng số AI Model:** không cần tải tay. Lần chạy backend đầu tiên (cần Internet) sẽ tự tải
+   `yolo11l-pose.pt` (tìm thí sinh + 17 điểm khớp) và `yolo11m.pt` (phát hiện điện thoại) vào `backend/models/`.
+   Model do nhóm train `turn_cls.pt` đã có sẵn trong repo. Tắt model nào bằng biến môi trường trước khi chạy,
+   vd `TURN_CLS_MODEL=none.pt` hoặc `PHONE_MODEL=none.pt`.
 
 ---
 
@@ -180,10 +183,22 @@ Nếu không có webcam hoặc muốn thử nghiệm các tình huống quay có
 
 ## 🎯 Quy Chuẩn AI & Phát Hiện Hành Vi
 
-- **Hiệu chuẩn góc nhìn (Calibration)**: Tự động ghi nhận 20 khung hình đầu tiên để tính góc Yaw cơ sở ($Yaw_0$) và độ cao mũi ($NoseY_0$).
-- **Quay đầu bất thường (Turning Head)**: Chênh lệch $|\Delta Yaw| > 35^\circ$.
-- **Cúi người / Nhìn tài liệu (Bending Down)**: Hạ mũi $NoseY - NoseY_0 > 0.15 \times \text{Chiều cao khung hình}$.
-- **Cảnh báo vi phạm (Trigger REVIEW)**: Khi duy trì trạng thái bất thường liên tục $\ge 1.5$ giây.
+Mỗi khung hình (960 px, ~64 ms trên RTX 4060) đi qua 3 model: **YOLO11-Pose** tìm thí sinh + 17 điểm khớp,
+**turn_cls** (nhóm train) đoán quay đầu trên ảnh cắt từng người, **YOLO11m** tìm điện thoại. Luật hành vi gộp lại:
+
+- **Lấy mốc (Calibration)**: 20 mẫu đầu của mỗi thí sinh, lấy **trung vị** vị trí mũi, góc đầu và P(turn) — một cú liếc
+  ngắn trong lúc lấy mốc không làm lệch mốc. Đổi camera / tải video khác → xoá toàn bộ track và lấy mốc lại.
+- **Quay đầu (TURNING)**, kéo dài $\ge 1.5$ giây, khi có một trong:
+  - góc quay đầu từ mũi so với hai tai lệch mốc $> 35^\circ$; tai xa bị che + mũi lệch khỏi giữa hai mắt được coi là quay ~60°
+    (chỉ khi người đủ lớn trong khung hình, vai $\ge 9\%$ chiều rộng ảnh);
+  - mũi lệch ngang so với vai vượt bán kính cho phép (bù góc camera);
+  - P(turn) của turn_cls (làm mượt) $\ge 0.8$ **và** cao hơn mốc riêng của thí sinh $\ge 0.5$.
+- **Dùng điện thoại (PHONE)**, kéo dài $\ge 1$ giây: khung "cell phone" (độ tin cậy $\ge 0.3$) cách cổ tay $\le 0.5$ lần độ rộng vai,
+  nhỏ và dài như điện thoại thật (diện tích $\le 0.05$ vai², tỉ lệ dài/rộng $\ge 1.3$) — loại tay cầm bút bị nhận nhầm.
+- **Cúi người (BENDING)**: chỉ là nhãn đi kèm, không tự gây cảnh báo (cúi viết bài là bình thường).
+
+Kết quả trên tập test DS-03 (sinh viên 5–8, không dùng để chỉnh): nhìn bài bạn 4/4, điện thoại 5/8,
+**báo nhầm người bình thường 0/16**. Chi tiết: [`training/README.md`](training/README.md).
 
 ---
 
