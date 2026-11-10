@@ -64,7 +64,9 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track }) => {
             <User size={14} className={isReview || suspicionLevel === 'ALERT' ? 'text-rose-400' : 'text-blue-400'} />
           </div>
           <span className="text-sm font-semibold text-slate-100">
-            ID {track.track_id < 10 ? '0' : ''}{track.track_id}
+            {track.seat_id
+              ? <>Ghế {track.seat_id < 10 ? '0' : ''}{track.seat_id} <span className="text-[10px] font-mono text-slate-500">ID {track.track_id}</span></>
+              : <>ID {track.track_id < 10 ? '0' : ''}{track.track_id}</>}
           </span>
         </div>
 

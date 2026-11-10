@@ -17,6 +17,7 @@ from typing import List, Tuple, Optional
 from app.config import settings
 from app.protocol import EventRef, FrameResult, TrackResult
 from app.inference.evidence import EvidenceRecorder
+from app.inference.seats import SeatRegistry
 from app.inference.pose_behavior import PoseBehaviorEngine
 from app.inference.events import EventManager
 
@@ -48,6 +49,7 @@ class SessionInferencePipeline:
         self.session_id = session_id
         self.pose_engine = PoseBehaviorEngine()
         self.event_manager = EventManager(session_id)
+        self.seats = SeatRegistry()
         self.evidence = EvidenceRecorder(settings.EVIDENCE_DIR / session_id, pre_s=settings.EVIDENCE_PRE_S,
                                          post_s=settings.EVIDENCE_POST_S, max_clips=settings.EVIDENCE_MAX_CLIPS)
         self.yolo_model = None
@@ -224,6 +226,7 @@ class SessionInferencePipeline:
         # 3. Pose Behavior Estimation per Candidate ROI
         t_pose_start = time.perf_counter()
         track_results: List[TrackResult] = []
+        seat_of = self._apply_seats([(d[0], d[1]) for d in detections])
         active_track_ids = [d[0] for d in detections]
         self.pose_engine.remove_lost_tracks(active_track_ids)
 
@@ -259,6 +262,7 @@ class SessionInferencePipeline:
                     turn_prob=turn_prob,
                     phone_seen=phone_seen
                 )
+                res.seat_id = seat_of.get(track_id)
                 track_results.append(res)
             except Exception as e:
                 print(f"[WARN] Error analyzing pose for track {track_id}: {e}")
@@ -295,6 +299,12 @@ class SessionInferencePipeline:
             new_events=new_events
         )
 
+    def _apply_seats(self, detections) -> dict:
+        """FT-01: stable seat number per track. A new track ID keeps the seat number but calibrates
+        itself: reusing the previous occupant's baseline was tried and dropped (classroom.mp4: the
+        invigilator took over an occluded student's seat and inherited their posture -> 2 false alerts)."""
+        return {tid: seat for tid, (seat, _) in self.seats.assign(detections).items()}
+
     def reset_tracking(self, now_ms: int):
         """
         Forget every track, track ID and per-student baseline. Without this, a new video is
@@ -304,6 +314,7 @@ class SessionInferencePipeline:
         self.event_manager.close_all_on_stop(now_ms)
         self.evidence.flush()   # frames from the new source must not end up in the old clips
         self.evidence.reset_buffer()
+        self.seats.reset()
         self.pose_engine.reset_session()
         predictor = getattr(self.yolo_model, "predictor", None) if self.yolo_model is not None else None
         for tracker in getattr(predictor, "trackers", None) or []:

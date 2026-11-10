@@ -71,6 +71,18 @@ class Settings(BaseSettings):
     PHONE_EMA_ON: float = 0.35              # smoothed flag above this counts as holding a phone
     PHONE_TRIGGER_S: float = float(os.getenv("PHONE_TRIGGER_S", "1.0"))
 
+    # FT-04 risk score: suspicious seconds inside a sliding window; RISK_FULL_S of them = 100 points
+    RISK_WINDOW_S: float = float(os.getenv("RISK_WINDOW_S", "30"))
+    RISK_FULL_S: float = float(os.getenv("RISK_FULL_S", "5"))
+    SENSITIVITY_DEFAULT: int = int(os.getenv("SENSITIVITY_DEFAULT", "3"))   # 1 low .. 5 high, UI slider
+
+    # FT-03 bending down to look under the desk: top of the person's box sinks >= BEND_DROP_SW shoulder
+    # widths below its calibrated height for >= BEND_TRIGGER_S. DS-03: writing lowers it <= 0.14 sw.
+    # Only for people big enough in frame (wide CCTV boxes jitter by more than that).
+    BEND_DROP_SW: float = float(os.getenv("BEND_DROP_SW", "0.5"))
+    BEND_TRIGGER_S: float = float(os.getenv("BEND_TRIGGER_S", "3.0"))
+    BEND_MIN_SHOULDER_FRAC: float = 0.09
+
     # FT-06 evidence clips: PRE seconds before + POST seconds after each new REVIEW event
     EVIDENCE_DIR: Path = Path(os.getenv("EVIDENCE_DIR", str(BASE_DIR / "evidence")))
     EVIDENCE_PRE_S: float = float(os.getenv("EVIDENCE_PRE_S", "5.0"))

@@ -69,3 +69,11 @@ Kiểm tra phụ: `test/classroom.mp4` (camera CCTV toàn cảnh, thí sinh áo 
 
 So với lúc bắt đầu đánh giá DS-03: nhìn bài bạn 0/8 → 7/8, điện thoại 0/17 → 11/17, mọi hành vi 2/41 → 23/41, báo nhầm vẫn 0/33.
 Trên DS-03, luật và luật+AI cho kết quả như nhau; turn_cls v2 chỉ tạo khác biệt ở camera toàn cảnh (classroom.mp4).
+
+## Sau 10 vòng — bổ sung tính năng MVP còn thiếu (FT-01, FT-03, FT-04, FT-06, FT-10)
+- Kiểm tra hồi quy trên DS-03 (`eval/r11_mvp.csv`): **giống hệt vòng 10** — nhìn bài bạn 7/8, điện thoại 11/17, báo nhầm 0/33.
+- classroom.mp4: cảnh báo giống hệt vòng 9; 58 ID theo dõi gộp còn 31 ghế cố định (FT-01).
+- FT-01 thử "kế thừa mốc tư thế khi đổi ID" rồi **bỏ**: giám thị đi ngang che thí sinh, nhận ghế trống và mốc của thí sinh
+  → 2 báo nhầm, không thêm ca đúng nào. Giữ số ghế nhưng ID mới tự lấy mốc; khung khác hẳn kích thước không được nhận ghế.
+- FT-03 (cúi gập dưới bàn): DS-03 không có hành vi này (đầu người bình thường hạ ≤ 0.14 vai, cao nhất 0.29 ở người dùng phao)
+  → đặt ngưỡng 0.5 vai, ≥ 3 s, chỉ khi người đủ lớn; đã kiểm chứng **không gây báo nhầm**, chưa kiểm chứng được khả năng bắt đúng.

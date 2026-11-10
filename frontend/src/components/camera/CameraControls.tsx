@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Play, Square, SwitchCamera, Video, Gauge, Zap, Upload, Film } from 'lucide-react';
+import { Play, Square, SwitchCamera, Video, Gauge, Zap, Upload, Film, SlidersHorizontal } from 'lucide-react';
 import { CameraFacingMode } from '../../types/monitoring';
 import { VideoDevice } from '../../hooks/useCamera';
 
@@ -11,12 +11,17 @@ interface CameraControlsProps {
   availableDevices: VideoDevice[];
   targetFps?: number;
   onUpdateFps?: (fps: number) => void;
+  sensitivity?: number;
+  onUpdateSensitivity?: (level: number) => void;
   onStart: () => void;
   onStop: () => void;
   onToggleCamera: () => void;
   onSelectDevice: (deviceId: string) => void;
   onSelectVideoFile?: (file: File) => void;
 }
+
+// Mirrors backend PoseBehaviorEngine.SENSITIVITY_FACTORS x REVIEW_TRIGGER_DURATION_S (1.5 s)
+const SENSITIVITY_TURN_S: Record<number, string> = { 1: '3', 2: '2.3', 3: '1.5', 4: '1.1', 5: '0.75' };
 
 export const CameraControls: React.FC<CameraControlsProps> = ({
   isStreaming,
@@ -26,6 +31,8 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   availableDevices,
   targetFps = 10,
   onUpdateFps,
+  sensitivity = 3,
+  onUpdateSensitivity,
   onStart,
   onStop,
   onToggleCamera,
@@ -144,6 +151,31 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
             ))}
           </div>
         </div>
+
+        {/* FT-04: alert sensitivity — how long a behaviour must last before an alert */}
+        {onUpdateSensitivity && (
+          <div className="flex items-center gap-2" title="Độ nhạy càng cao, hành vi càng ngắn đã bị cảnh báo (dễ báo nhầm hơn)">
+            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-semibold">
+              <SlidersHorizontal size={14} className="text-amber-400 shrink-0" />
+              <span>Độ nhạy:</span>
+            </div>
+            <span className="text-[10px] text-slate-500">Thấp</span>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={sensitivity}
+              onChange={(e) => onUpdateSensitivity(Number(e.target.value))}
+              aria-label="Độ nhạy cảnh báo"
+              className="w-24 accent-amber-500 cursor-pointer"
+            />
+            <span className="text-[10px] text-slate-500">Cao</span>
+            <span className="font-mono text-[11px] text-amber-300 whitespace-nowrap">
+              {sensitivity} · quay đầu ≥ {SENSITIVITY_TURN_S[sensitivity]}s
+            </span>
+          </div>
+        )}
 
         {/* Right: Camera Eye Selector (If multi-camera) */}
         {!isVideoFile && availableDevices.length > 2 && (

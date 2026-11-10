@@ -27,6 +27,8 @@ export interface TrackResult {
   shoulder_tilt?: number;
   is_leaning?: boolean;
   turn_count_10s?: number;
+  ai_turn_prob?: number | null;
+  seat_id?: number | null; // stable desk-position number (FT-01)
 }
 
 export interface MonitoringResult {
@@ -55,6 +57,7 @@ export interface MonitoringEvent {
   reviewer?: string;
   reviewed_at?: string;
   evidence_url?: string; // 5 s before/after MP4 recorded by the backend (FT-06)
+  seat_id?: number | null;
 }
 
 export type SocketConnectionState = 

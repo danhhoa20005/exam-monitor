@@ -196,6 +196,16 @@ Mỗi khung hình (960 px, ~64 ms trên RTX 4060) đi qua 3 model: **YOLO11-Pose
 - **Dùng điện thoại (PHONE)**, kéo dài $\ge 1$ giây: khung "cell phone" (độ tin cậy $\ge 0.3$) cách cổ tay $\le 0.5$ lần độ rộng vai,
   nhỏ và dài như điện thoại thật (diện tích $\le 0.05$ vai², tỉ lệ dài/rộng $\ge 1.3$) — loại tay cầm bút bị nhận nhầm.
 - **Cúi người (BENDING)**: chỉ là nhãn đi kèm, không tự gây cảnh báo (cúi viết bài là bình thường).
+- **Cúi gập nhìn dưới bàn (UNDER_DESK, FT-03)**: đỉnh đầu (mép trên khung người) hạ $\ge 0.5$ lần độ rộng vai so với mốc,
+  kéo dài $\ge 3$ giây — vẫn đánh giá được khi mặt bị che. Chỉ áp dụng khi người đủ lớn (vai $\ge 9\%$ chiều rộng ảnh).
+  DS-03: người viết bài bình thường đầu hạ tối đa 0.14 vai.
+- **Điểm rủi ro & độ nhạy (FT-04)**: điểm 0–100 = số giây có hành vi nghi vấn trong **30 giây gần nhất**
+  (5 giây = 100 điểm). Thanh **Độ nhạy** 1–5 trên giao diện (mặc định 3) đổi thời gian cần kéo dài trước khi cảnh báo
+  (quay đầu: 3 s … 0.75 s), áp dụng ngay qua WebSocket.
+- **Số ghế cố định (FT-01)**: mỗi vị trí ngồi có số ghế; khi bộ theo dõi đổi ID (bị che khuất), ID mới ở đúng chỗ đó
+  vẫn mang số ghế cũ. Người có khung khác hẳn kích thước (đứng / đi lại, vd giám thị) không nhận ghế của người ngồi.
+- **Biên bản ca thi (FT-10)**: nút **Biên bản** mở trang in A4 (thí sinh xếp theo điểm nghi vấn, danh sách sự kiện,
+  quyết định giám thị, link clip, chỗ ký) → chọn "Lưu dưới dạng PDF". Vẫn có xuất CSV / JSON.
 - **Clip bằng chứng (FT-06)**: mỗi sự kiện REVIEW mới tự lưu clip MP4 (H.264) gồm 5 giây trước + 5 giây sau, thí sinh
   bị khoanh đỏ, vào `backend/evidence/<phiên>/<sự kiện>.mp4` (tối đa 50 clip/phiên). Xem bằng nút **Clip** trong
   "Nhật Ký Sự Kiện" hoặc API `GET /api/sessions/{session_id}/evidence/{event_id}` (`.../status` để biết đã ghi xong chưa).

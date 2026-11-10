@@ -26,6 +26,7 @@ interface SmoothTrackState {
   calibrationSamples: number;
   turningDurationMs: number;
   activity?: string;
+  seatId?: number | null;
   opacity: number;
   lastUpdatedMs: number;
 }
@@ -112,6 +113,7 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
         existing.status = track.status;
         existing.reasons = track.reasons;
         existing.calibrationSamples = track.calibration_samples;
+        existing.seatId = track.seat_id;
         existing.turningDurationMs = track.turning_duration_ms || 0;
         existing.activity = track.activity || "attentive";
         existing.lastUpdatedMs = now;
@@ -134,6 +136,7 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
           calibrationSamples: track.calibration_samples,
           turningDurationMs: track.turning_duration_ms || 0,
           activity: track.activity || "attentive",
+          seatId: track.seat_id,
           opacity: 0.1,
           lastUpdatedMs: now
         });
@@ -242,7 +245,8 @@ export const TrackOverlay: React.FC<TrackOverlayProps> = ({
         if (st.activity === 'hand_raised') actLabel = ' • ✋ Giơ tay';
         else if (st.activity === 'inattentive') actLabel = ' • ⚠️ Mất tập trung';
         
-        const tagText = `ID ${id < 10 ? '0' : ''}${id}  •  ${statusText}${actLabel}`;
+        const who = st.seatId ? `Ghế ${st.seatId < 10 ? '0' : ''}${st.seatId}` : `ID ${id < 10 ? '0' : ''}${id}`;
+        const tagText = `${who}  •  ${statusText}${actLabel}`;
         ctx.font = '700 11px Inter, system-ui, sans-serif';
         const textMetrics = ctx.measureText(tagText);
         const tagH = 22;

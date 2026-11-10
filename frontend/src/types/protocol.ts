@@ -32,6 +32,7 @@ export interface ClientConfigMessage {
   session_id: string;
   target_fps?: number;
   confidence_threshold?: number;
+  sensitivity?: number; // 1 low .. 5 high (FT-04)
 }
 
 export interface ClientPingMessage {

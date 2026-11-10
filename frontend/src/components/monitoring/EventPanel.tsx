@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MonitoringEvent, EventReviewStatus } from '../../types/monitoring';
-import { AlertTriangle, CheckCircle2, Eye, XCircle, Clock, Download, FileSpreadsheet, Film } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Eye, XCircle, Clock, Download, FileSpreadsheet, Film, FileText } from 'lucide-react';
 
 // The backend still records the 5 s after the alert, so ask before opening the clip
 async function openEvidence(url: string, setNote: (msg: string) => void) {
@@ -25,13 +25,15 @@ interface EventPanelProps {
   onUpdateStatus: (eventId: string, status: EventReviewStatus) => void;
   onExportCsv: () => void;
   onExportJson: () => void;
+  onExportReport?: () => void;
 }
 
 export const EventPanel: React.FC<EventPanelProps> = ({
   events,
   onUpdateStatus,
   onExportCsv,
-  onExportJson
+  onExportJson,
+  onExportReport
 }) => {
   const [clipNotes, setClipNotes] = useState<Record<string, string>>({});
   return (
@@ -65,6 +67,17 @@ export const EventPanel: React.FC<EventPanelProps> = ({
               <Download size={12} />
               <span>JSON</span>
             </button>
+            {onExportReport && (
+              <button
+                type="button"
+                onClick={onExportReport}
+                className="px-2.5 py-1 text-xs font-medium text-amber-200 bg-amber-950/50 hover:bg-amber-900/60 border border-amber-800/60 rounded-lg flex items-center gap-1 transition-all"
+                title="Biên bản ca thi (in hoặc Lưu dưới dạng PDF)"
+              >
+                <FileText size={12} />
+                <span>Biên bản</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -97,7 +110,9 @@ export const EventPanel: React.FC<EventPanelProps> = ({
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-rose-300 flex items-center gap-1.5">
                     <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-mono text-[10px]">
-                      ID {evt.track_id < 10 ? '0' : ''}{evt.track_id}
+                      {evt.seat_id
+                        ? `Ghế ${evt.seat_id < 10 ? '0' : ''}${evt.seat_id}`
+                        : `ID ${evt.track_id < 10 ? '0' : ''}${evt.track_id}`}
                     </span>
                     {evt.reasons.join(', ')}
                   </span>

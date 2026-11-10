@@ -45,7 +45,10 @@ export const MonitorPage: React.FC = () => {
     sendFrame,
     updateEventStatus,
     exportCsv,
-    exportJson
+    exportJson,
+    sensitivity,
+    setSensitivity,
+    openReport
   } = useMonitoringSocket(isStreaming);
 
   // Handle Start Camera Button
@@ -178,6 +181,8 @@ export const MonitorPage: React.FC = () => {
               activeDeviceId={activeDeviceId}
               availableDevices={availableDevices}
               targetFps={modelConfig.targetFps || 10}
+              sensitivity={sensitivity}
+              onUpdateSensitivity={setSensitivity}
               onUpdateFps={(fps) => updateModelConfig({ targetFps: fps })}
               onStart={handleStart}
               onStop={handleStop}
@@ -300,6 +305,7 @@ export const MonitorPage: React.FC = () => {
                 onUpdateStatus={updateEventStatus}
                 onExportCsv={exportCsv}
                 onExportJson={exportJson}
+                onExportReport={openReport}
               />
             </div>
           </section>

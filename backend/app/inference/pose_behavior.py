@@ -16,6 +16,7 @@ Features:
 import os
 import math
 import statistics
+from collections import deque
 import time
 try:
     import numpy as np
@@ -85,6 +86,13 @@ class CandidateTrackState:
         self.phone_ema: float = 0.0                   # smoothed "phone next to a wrist" flag
         self.phone_start_ms: Optional[int] = None
         self.phone_duration_ms: int = 0
+        self.risk_samples: deque = deque()            # (t_ms, suspicious seconds) inside the risk window
+        self.calibration_tops: List[float] = []       # top of the person box (px) while calibrating
+        self.calibration_sws: List[float] = []        # shoulder width (px) while calibrating
+        self.base_top_px: Optional[float] = None
+        self.base_sw: Optional[float] = None
+        self.under_desk_start_ms: Optional[int] = None
+        self.under_desk_duration_ms: int = 0
 
     def reset_calibration(self):
         """Reset ongoing calibration samples if track was interrupted."""
@@ -94,6 +102,10 @@ class CandidateTrackState:
         self.calibration_torso.clear()
         self.calibration_turn_probs.clear()
         self.turn_prob_base = None
+        self.calibration_tops.clear()
+        self.calibration_sws.clear()
+        self.base_top_px = None
+        self.base_sw = None
         self.base_nose_x = None
         self.base_nose_y = None
         self.baseline_nose_y = None
@@ -110,6 +122,8 @@ class CandidateTrackState:
         self.bending_start_time_ms = None
         self.bending_duration_ms = 0
         self.was_turning = False
+        self.under_desk_start_ms = None
+        self.under_desk_duration_ms = 0
 
 
 class PoseBehaviorEngine:
@@ -121,7 +135,19 @@ class PoseBehaviorEngine:
     PROFILE_MIN_EYE_OFFSET = 0.10
     def __init__(self):
         self.track_states: Dict[int, CandidateTrackState] = {}
+        self.sensitivity: int = settings.SENSITIVITY_DEFAULT
         print("[OK] YOLO11-Pose Cheating Detection Engine initialized (dyingangell/Cheating-detection-YOLO).")
+
+    # Sensitivity 1 (low) .. 5 (high) scales how long a behaviour must last before REVIEW
+    # and how many suspicious seconds fill the risk score. 3 = the evaluated defaults.
+    SENSITIVITY_FACTORS = {1: 2.0, 2: 1.5, 3: 1.0, 4: 0.75, 5: 0.5}
+
+    def set_sensitivity(self, level: int):
+        self.sensitivity = max(1, min(5, int(level)))
+
+    @property
+    def duration_factor(self) -> float:
+        return self.SENSITIVITY_FACTORS[self.sensitivity]
 
     def reset_session(self):
         """Clear all tracking states when session stops."""
@@ -363,7 +389,7 @@ class PoseBehaviorEngine:
                 state.phone_start_ms = None
                 state.phone_duration_ms = 0
         phone_on = state.phone_ema > settings.PHONE_EMA_ON
-        phone_active = state.phone_duration_ms >= int(settings.PHONE_TRIGGER_S * 1000)
+        phone_active = state.phone_duration_ms >= int(settings.PHONE_TRIGGER_S * self.duration_factor * 1000)
 
         # 1. Walking detection from bbox center displacement
         box_cx = (x1_n + x2_n) * 0.5 * w_frame
@@ -386,7 +412,16 @@ class PoseBehaviorEngine:
             )
 
         if not conf_ok or rel_nose_x is None:
-            # No reliable keypoints: report honestly instead of guessing a head pose from the bbox
+            # Face hidden but shoulders visible: the one case still judged is bending under the desk
+            # (the face disappears exactly then). Otherwise report honestly instead of guessing.
+            if (has_direct_kpts and state.is_calibrated and
+                    min(float(person_kpts[5][2]), float(person_kpts[6][2])) >= settings.LANDMARK_MIN_VISIBILITY):
+                sw = abs(float(person_kpts[5][0]) - float(person_kpts[6][0]))
+                if self._update_under_desk(state, y1_n * h_frame, sw, w_frame, captured_at_ms):
+                    return self._build_under_desk_result(track_id, bbox_xyxy_norm, detection_conf, frame_id,
+                                                         state, activity, captured_at_ms, dt)
+            else:
+                state.under_desk_start_ms, state.under_desk_duration_ms = None, 0
             return self._build_unavailable_result(track_id, bbox_xyxy_norm, detection_conf, frame_id, state, activity)
 
         # 3. Detect arm raised / hand actions (COCO: 5=ls, 6=rs, 9=lw, 10=rw)
@@ -428,6 +463,8 @@ class PoseBehaviorEngine:
                 state.calibration_yaws.append(head_yaw)
             if turn_prob is not None:
                 state.calibration_turn_probs.append(float(turn_prob))
+            state.calibration_tops.append(y1_n * h_frame)
+            state.calibration_sws.append(float(shoulder_w))
 
             state.calibration_samples += 1
             if state.calibration_samples >= settings.CALIBRATION_SAMPLES:
@@ -442,6 +479,8 @@ class PoseBehaviorEngine:
                 state.yaw_calib_samples = len(state.calibration_yaws)
                 if state.calibration_turn_probs:
                     state.turn_prob_base = statistics.median(state.calibration_turn_probs)
+                state.base_top_px = statistics.median(state.calibration_tops)
+                state.base_sw = statistics.median(state.calibration_sws)
                 state.is_calibrated = True
 
             return TrackResult(
@@ -546,11 +585,22 @@ class PoseBehaviorEngine:
         # Frequency of turning in the last 10 seconds
         turn_count_10s = sum(1 for t_ms in state.turn_events if captured_at_ms - t_ms <= 10000)
 
-        threshold = float(settings.POSE_WARN_THRESHOLD_S)
+        under_desk = self._update_under_desk(state, y1_n * h_frame, shoulder_w, w_frame, captured_at_ms)
+        under_desk_active = state.under_desk_duration_ms >= int(settings.BEND_TRIGGER_S * self.duration_factor * 1000)
+
+        # FT-04 risk window: seconds of suspicious behaviour within the last RISK_WINDOW_S
+        if is_turning or phone_on or under_desk:
+            state.risk_samples.append((captured_at_ms, dt))
+        while state.risk_samples and captured_at_ms - state.risk_samples[0][0] > settings.RISK_WINDOW_S * 1000:
+            state.risk_samples.popleft()
+        risk_s = sum(s for _, s in state.risk_samples)
+
+        f = self.duration_factor
+        threshold = float(settings.POSE_WARN_THRESHOLD_S) * f
         reasons: List[BehaviorReason] = []
 
-        if (state.score_s >= threshold or state.turning_duration_ms >= int(settings.REVIEW_TRIGGER_DURATION_S * 1000)
-                or phone_active):
+        if (state.score_s >= threshold or state.turning_duration_ms >= int(settings.REVIEW_TRIGGER_DURATION_S * f * 1000)
+                or phone_active or under_desk_active):
             status: TrackStatus = "REVIEW"
             if is_turning:
                 reasons.append("TURNING")
@@ -558,9 +608,11 @@ class PoseBehaviorEngine:
                 reasons.append("BENDING")
             if phone_on:
                 reasons.append("PHONE")
+            if under_desk:
+                reasons.append("UNDER_DESK")
             if not reasons:
                 reasons.append("PHONE" if phone_active else "TURNING")
-        elif state.score_s > 0.6 or suspicious or state.turning_duration_ms > 400 or phone_on:
+        elif state.score_s > 0.6 or suspicious or state.turning_duration_ms > 400 or phone_on or under_desk:
             status = "OBSERVING"
             if is_turning:
                 reasons.append("TURNING")
@@ -568,11 +620,13 @@ class PoseBehaviorEngine:
                 reasons.append("BENDING")
             if phone_on:
                 reasons.append("PHONE")
+            if under_desk:
+                reasons.append("UNDER_DESK")
         else:
             status = "WITHIN_THRESHOLDS"
 
-        # Calculate Hazard Meter Suspicion Score (0 to 100)
-        suspicion_score = min(100, int((state.score_s / max(0.1, threshold)) * 100))
+        # Risk score 0-100: RISK_FULL_S suspicious seconds within the window = 100 (scaled by sensitivity)
+        suspicion_score = min(100, int(100 * risk_s / (settings.RISK_FULL_S * f)))
         if status == "REVIEW":
             suspicion_score = max(80, suspicion_score)
 
@@ -612,6 +666,57 @@ class PoseBehaviorEngine:
             is_leaning=state.is_leaning,
             turn_count_10s=turn_count_10s,
             ai_turn_prob=ai_turn_prob
+        )
+
+    def _update_under_desk(self, state: CandidateTrackState, top_px: float, shoulder_w: Optional[float],
+                           frame_w: int, now_ms: int) -> bool:
+        """FT-03: is the top of this student's box sunk far below its calibrated height right now?"""
+        deep = False
+        if (state.base_top_px is not None and state.base_sw and shoulder_w
+                and state.base_sw >= settings.BEND_MIN_SHOULDER_FRAC * frame_w):
+            deep = (top_px - state.base_top_px) / state.base_sw >= settings.BEND_DROP_SW
+        if deep:
+            if state.under_desk_start_ms is None:
+                state.under_desk_start_ms = now_ms
+            state.under_desk_duration_ms = now_ms - state.under_desk_start_ms
+        else:
+            state.under_desk_start_ms = None
+            state.under_desk_duration_ms = 0
+        return deep
+
+    def _build_under_desk_result(self, track_id: int, bbox_xyxy_norm, detection_conf: float, frame_id: int,
+                                 state: CandidateTrackState, activity: str, now_ms: int, dt: float) -> TrackResult:
+        """Bent under the desk with the face hidden: OBSERVING, then REVIEW once it lasts BEND_TRIGGER_S."""
+        f = self.duration_factor
+        state.risk_samples.append((now_ms, dt))
+        while state.risk_samples and now_ms - state.risk_samples[0][0] > settings.RISK_WINDOW_S * 1000:
+            state.risk_samples.popleft()
+        score = min(100, int(100 * sum(s for _, s in state.risk_samples) / (settings.RISK_FULL_S * f)))
+        review = state.under_desk_duration_ms >= int(settings.BEND_TRIGGER_S * f * 1000)
+        if review:
+            score = max(80, score)
+        level = "ALERT" if score >= 80 else "WARNING" if score >= 50 else "ATTENTION" if score >= 25 else "NORMAL"
+        state.suspicion_score, state.suspicion_level = score, level
+        return TrackResult(
+            track_id=track_id,
+            bbox_xyxy_norm=bbox_xyxy_norm,
+            detection_confidence=round(detection_conf, 2),
+            pose_valid=False,
+            pose_sample_frame=frame_id,
+            calibration_samples=settings.CALIBRATION_SAMPLES,
+            status="REVIEW" if review else "OBSERVING",
+            reasons=["UNDER_DESK"],
+            yaw_delta_deg=0.0,
+            nose_drop_ratio=0.0,
+            turning_duration_ms=0,
+            bending_duration_ms=state.under_desk_duration_ms,
+            progress_percent=100.0,
+            activity=activity,
+            suspicion_score=score,
+            suspicion_level=level,
+            shoulder_tilt=0.0,
+            is_leaning=False,
+            turn_count_10s=0
         )
 
     def _build_unavailable_result(

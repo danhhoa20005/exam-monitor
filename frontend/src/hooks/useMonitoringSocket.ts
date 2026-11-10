@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { openSessionReport, StudentStat } from '../utils/sessionReport';
 import { 
   TrackResult, 
   MonitoringEvent, 
@@ -34,6 +35,15 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
   const [tracks, setTracks] = useState<TrackResult[]>([]);
   const [events, setEvents] = useState<MonitoringEvent[]>([]);
   const [fps, setFps] = useState<number>(0);
+  // FT-04 alert sensitivity 1 (low) .. 5 (high); 3 = evaluated defaults. Remembered per browser.
+  const [sensitivity, setSensitivityState] = useState<number>(() => {
+    try { return Number(localStorage.getItem('visionguard_sensitivity')) || 3; } catch { return 3; }
+  });
+  const sensitivityRef = useRef<number>(sensitivity);
+  // FT-10 per-student summary for the exam report; restarts when a new camera/video source starts
+  const studentStatsRef = useRef<Map<string, StudentStat>>(new Map());
+  const reportStartRef = useRef<number>(Date.now());
+  const lastSourceRef = useRef<string | undefined>(undefined);
   const [latencyMs, setLatencyMs] = useState<number>(0);
   const [modelConfig, setModelConfig] = useState<ModelConnectionConfig>(DEFAULT_MODEL_CONFIG);
   const [sessionReady, setSessionReady] = useState(false);
@@ -173,6 +183,19 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
               inFlightTimeoutRef.current = null;
             }
             setTracks(data.tracks || []);
+            const nowMs = Date.now();
+            for (const t of data.tracks || []) {
+              const label = t.seat_id ? `Ghế ${String(t.seat_id).padStart(2, '0')}` : `ID ${String(t.track_id).padStart(2, '0')}`;
+              const st = studentStatsRef.current.get(label)
+                || { label, maxScore: 0, reviewFrames: 0, reasons: [], firstSeenMs: nowMs, lastSeenMs: nowMs };
+              st.maxScore = Math.max(st.maxScore, t.suspicion_score || 0);
+              if (t.status === 'REVIEW') {
+                st.reviewFrames += 1;
+                t.reasons.forEach(r => { if (!st.reasons.includes(r)) st.reasons.push(r); });
+              }
+              st.lastSeenMs = nowMs;
+              studentStatsRef.current.set(label, st);
+            }
             recordFrameTelemetry(data.processing_ms || 0);
 
             // Append newly triggered suspicious events from real AI model
@@ -189,6 +212,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
                     evidence_url: ref ? `${apiBase}/api/sessions/${data.session_id}/evidence/${ref.event_id}` : undefined,
                     session_id: modelConfig.sessionId,
                     track_id: track.track_id,
+                    seat_id: track.seat_id,
                     reasons: track.reasons.length > 0 ? track.reasons : ['Nghi vấn tư thế bất thường'],
                     start_ms: data.captured_at_ms,
                     duration_ms: Math.max(track.turning_duration_ms || 0, track.bending_duration_ms || 0, 1500),
@@ -202,6 +226,7 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
             }
           } else if (data.type === 'session_info') {
             setConnectionState('connected');
+            ws.send(JSON.stringify({ type: 'config', session_id: modelConfig.sessionId, sensitivity: sensitivityRef.current }));
           } else if (data.type === 'pong') {
             const rtt = Date.now() - data.client_timestamp;
             setLatencyMs(rtt);
@@ -294,6 +319,11 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     if (!isCameraStreaming || !wsRef.current) return;
     if (wsRef.current.readyState !== WebSocket.OPEN) return;
     if (inFlightFrameRef.current) return; // Drop frame to avoid backpressure
+    if (sourceId !== lastSourceRef.current) {   // new camera/video: seats restart, so does the report
+      lastSourceRef.current = sourceId;
+      studentStatsRef.current = new Map();
+      reportStartRef.current = Date.now();
+    }
 
     inFlightFrameRef.current = true;
     if (inFlightTimeoutRef.current) clearTimeout(inFlightTimeoutRef.current);
@@ -375,8 +405,30 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     URL.revokeObjectURL(url);
   }, [modelConfig.sessionId, events, tracks]);
 
+  const setSensitivity = useCallback((level: number) => {
+    sensitivityRef.current = level;
+    setSensitivityState(level);
+    try { localStorage.setItem('visionguard_sensitivity', String(level)); } catch { /* private mode */ }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'config', session_id: modelConfig.sessionId, sensitivity: level }));
+    }
+  }, [modelConfig.sessionId]);
+
+  const openReport = useCallback(() => {
+    openSessionReport({
+      sessionId: modelConfig.sessionId,
+      startedAtMs: reportStartRef.current,
+      sensitivity: sensitivityRef.current,
+      students: [...studentStatsRef.current.values()],
+      events,
+    });
+  }, [events, modelConfig.sessionId]);
+
   return {
     connectionState,
+    openReport,
+    sensitivity,
+    setSensitivity,
     tracks,
     events,
     fps,

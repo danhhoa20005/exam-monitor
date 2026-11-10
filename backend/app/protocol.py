@@ -13,7 +13,7 @@ TrackStatus = Literal[
     "POSE_UNAVAILABLE"
 ]
 
-BehaviorReason = Literal["TURNING", "BENDING", "PHONE"]
+BehaviorReason = Literal["TURNING", "BENDING", "PHONE", "UNDER_DESK"]
 
 ReviewDecision = Literal[
     "PENDING",
@@ -58,6 +58,7 @@ class TrackResult(BaseModel):
     is_leaning: Optional[bool] = False
     turn_count_10s: Optional[int] = 0
     ai_turn_prob: Optional[float] = None   # smoothed P(turn) from the team's crop classifier
+    seat_id: Optional[int] = None          # stable desk-position number (FT-01), survives track ID switches
 
 class EventRef(BaseModel):
     event_id: str

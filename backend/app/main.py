@@ -335,6 +335,12 @@ async def websocket_session_endpoint(websocket: WebSocket, session_id: str):
             elif msg.get("type") == "ping":
                 await websocket.send_json({"type": "pong", "timestamp": int(time.time() * 1000)})
 
+            elif msg.get("type") == "config" and msg.get("sensitivity") is not None:
+                # FT-04 sensitivity slider (1 low .. 5 high), applies to the next frame
+                session.pipeline.pose_engine.set_sensitivity(msg["sensitivity"])
+                await websocket.send_json({"type": "config_ack",
+                                           "sensitivity": session.pipeline.pose_engine.sensitivity})
+
     except WebSocketDisconnect:
         print(f"[WS] Client disconnected from session {session_id}")
     except Exception as e:
