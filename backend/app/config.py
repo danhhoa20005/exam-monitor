@@ -69,7 +69,12 @@ class Settings(BaseSettings):
     PHONE_MIN_ASPECT: float = 1.3
     PHONE_EMA_ALPHA: float = 0.3            # per-track smoothing of the per-frame "phone in hand" flag
     PHONE_EMA_ON: float = 0.35              # smoothed flag above this counts as holding a phone
+    PHONE_EMA_OFF: float = float(os.getenv("PHONE_EMA_OFF", "0.2"))   # ...until it drops below this (hysteresis)
     PHONE_TRIGGER_S: float = float(os.getenv("PHONE_TRIGGER_S", "1.0"))
+
+    # MS-02 performance mode: run turn_cls and the phone detector on 1 frame in N each, staggered,
+    # and reuse their last result in between (pose + tracking still run on every frame). 1 = every frame.
+    AUX_MODEL_EVERY_N: int = int(os.getenv("AUX_MODEL_EVERY_N", "2"))
 
     # FT-04 risk score: suspicious seconds inside a sliding window; RISK_FULL_S of them = 100 points
     RISK_WINDOW_S: float = float(os.getenv("RISK_WINDOW_S", "30"))

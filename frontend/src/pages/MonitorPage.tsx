@@ -48,6 +48,8 @@ export const MonitorPage: React.FC = () => {
     exportJson,
     sensitivity,
     setSensitivity,
+    soundOn,
+    toggleSound,
     openReport
   } = useMonitoringSocket(isStreaming);
 
@@ -306,6 +308,8 @@ export const MonitorPage: React.FC = () => {
                 onExportCsv={exportCsv}
                 onExportJson={exportJson}
                 onExportReport={openReport}
+                soundOn={soundOn}
+                onToggleSound={toggleSound}
               />
             </div>
           </section>

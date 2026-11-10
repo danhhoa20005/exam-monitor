@@ -381,14 +381,14 @@ class PoseBehaviorEngine:
         if phone_seen is not None:
             a = settings.PHONE_EMA_ALPHA
             state.phone_ema = (1.0 - a) * state.phone_ema + a * (1.0 if phone_seen else 0.0)
-            if state.phone_ema > settings.PHONE_EMA_ON:
-                if state.phone_start_ms is None:
-                    state.phone_start_ms = captured_at_ms
-                state.phone_duration_ms = captured_at_ms - state.phone_start_ms
-            else:
+            # hysteresis: starts above PHONE_EMA_ON, only stops below PHONE_EMA_OFF, so a detector
+            # missing the phone for a frame or two does not restart the timer
+            if state.phone_ema > settings.PHONE_EMA_ON and state.phone_start_ms is None:
+                state.phone_start_ms = captured_at_ms
+            elif state.phone_ema < settings.PHONE_EMA_OFF:
                 state.phone_start_ms = None
-                state.phone_duration_ms = 0
-        phone_on = state.phone_ema > settings.PHONE_EMA_ON
+            state.phone_duration_ms = (captured_at_ms - state.phone_start_ms) if state.phone_start_ms is not None else 0
+        phone_on = state.phone_start_ms is not None   # inside the hysteresis band counts as still holding it
         phone_active = state.phone_duration_ms >= int(settings.PHONE_TRIGGER_S * self.duration_factor * 1000)
 
         # 1. Walking detection from bbox center displacement

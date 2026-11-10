@@ -1,0 +1,38 @@
+file,split,left,right,mode,left_flagged,right_flagged,n_review,max_score,onsets,duration_s,proc_s
+v_c1_s1_s2.MOV,dev,phone,phone,ai,1,0,2,100,5.3s#1L 9.0s#1L,12.6,7.9
+v_c1_s1_v1.MOV,dev,phone,not_cheating,ai,1,0,2,100,8.7s#1L 10.3s#1L,12.6,6.3
+v_c1_s1_v2.MOV,dev,phone,not_cheating,ai,1,0,1,80,10.4s#1L,13.1,6.6
+v_c1_s2.MOV,dev,not_cheating,phone,ai,0,0,0,0,,14.1,7.0
+v_c1_s3.MOV,dev,phone,not_cheating,ai,0,0,0,31,,8.8,4.5
+v_c1_s3_s4.MOV,dev,phone,phone,ai,1,1,2,80,5.2s#2L 5.8s#1R,7.5,3.8
+v_c1_s4.MOV,dev,not_cheating,phone,ai,0,1,2,81,4.0s#1R 6.1s#1R,9.2,4.7
+v_c1_s5.MOV,test,phone,not_cheating,ai,1,0,1,80,6.0s#2L,8.9,4.6
+v_c1_s5_s6.MOV,test,phone,phone,ai,1,1,3,100,4.7s#1R 5.7s#2L 8.2s#2L,10.1,5.1
+v_c1_s6.MOV,test,not_cheating,phone,ai,0,0,0,0,,7.8,4.2
+v_c1_s7.MOV,test,phone,not_cheating,ai,1,0,2,80,7.0s#2L 9.7s#2L,10.1,5.1
+v_c1_s7_s8.MOV,test,phone,phone,ai,1,0,2,100,4.8s#2L 10.9s#2L,11.2,5.9
+v_c1_s8.MOV,test,not_cheating,phone,ai,0,1,1,80,3.8s#1R,8.4,4.5
+v_c2_s1_s2.MOV,dev,exchange_paper,exchange_paper,ai,0,0,0,26,,6.5,3.4
+v_c2_s3_s4.MOV,dev,exchange_paper,exchange_paper,ai,0,0,0,53,,4.8,2.6
+v_c2_s5_s6.MOV,test,exchange_paper,exchange_paper,ai,1,1,2,80,7.5s#2L 8.4s#1R,11.0,5.5
+v_c2_s7_s8.MOV,test,exchange_paper,exchange_paper,ai,1,0,1,80,4.8s#2L,8.8,4.5
+v_c3_s1.MOV,dev,look_at_paper,not_cheating,ai,1,0,1,80,4.0s#2L,7.1,3.6
+v_c3_s2.MOV,dev,not_cheating,look_at_paper,ai,0,0,0,25,,7.2,3.7
+v_c3_s3.MOV,dev,look_at_paper,not_cheating,ai,1,0,1,80,4.0s#2L,8.9,4.5
+v_c3_s4.MOV,dev,not_cheating,look_at_paper,ai,0,1,2,81,3.2s#1R 9.3s#1R,10.1,5.2
+v_c3_s5.MOV,test,look_at_paper,not_cheating,ai,1,0,3,100,3.2s#2L 5.3s#2L 8.8s#2L,9.6,4.9
+v_c3_s6.MOV,test,not_cheating,look_at_paper,ai,0,1,2,100,3.5s#2R 7.7s#2R,10.3,5.3
+v_c3_s7.MOV,test,look_at_paper,not_cheating,ai,1,0,2,100,3.8s#2L 7.7s#2L,9.5,4.8
+v_c3_s8.MOV,test,not_cheating,look_at_paper,ai,0,1,1,96,3.2s#1R,10.6,5.3
+v_c4_s1.MOV,dev,cheat_sheet,not_cheating,ai,0,0,0,21,,7.0,3.6
+v_c4_s2.MOV,dev,not_cheating,cheat_sheet,ai,0,0,0,36,,8.2,4.1
+v_c4_s3.MOV,dev,cheat_sheet,not_cheating,ai,0,0,0,21,,7.5,3.8
+v_c4_s4.MOV,dev,not_cheating,cheat_sheet,ai,0,1,1,80,3.5s#1R,9.7,4.9
+v_c4_s5.MOV,test,cheat_sheet,not_cheating,ai,0,0,0,23,,8.6,4.5
+v_c4_s6.MOV,test,not_cheating,cheat_sheet,ai,0,0,0,0,,8.4,4.3
+v_c4_s7.MOV,test,cheat_sheet,not_cheating,ai,0,0,0,28,,11.2,5.6
+v_c4_s8.MOV,test,not_cheating,cheat_sheet,ai,0,1,1,80,5.8s#1R,8.0,4.0
+v_c5_s1_s2.MOV,dev,not_cheating,not_cheating,ai,0,0,0,0,,8.3,4.3
+v_c5_s3_s4.MOV,dev,not_cheating,not_cheating,ai,0,0,0,0,,12.2,6.0
+v_c5_s5_s6.MOV,test,not_cheating,not_cheating,ai,0,0,0,0,,8.7,4.3
+v_c5_s7_s8.MOV,test,not_cheating,not_cheating,ai,0,0,0,0,,11.2,5.5

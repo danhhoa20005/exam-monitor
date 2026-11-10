@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { openSessionReport, StudentStat } from '../utils/sessionReport';
+import { playAlertBeep, unlockAlertSound } from '../utils/alertSound';
 import { 
   TrackResult, 
   MonitoringEvent, 
@@ -40,6 +41,13 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     try { return Number(localStorage.getItem('visionguard_sensitivity')) || 3; } catch { return 3; }
   });
   const sensitivityRef = useRef<number>(sensitivity);
+  // FT-11 beep on a new REVIEW event; on by default, remembered per browser
+  const [soundOn, setSoundOn] = useState<boolean>(() => {
+    try { return localStorage.getItem('visionguard_sound') !== 'off'; } catch { return true; }
+  });
+  const soundOnRef = useRef<boolean>(soundOn);
+  const eventsRef = useRef<MonitoringEvent[]>(events);
+  useEffect(() => { eventsRef.current = events; }, [events]);
   // FT-10 per-student summary for the exam report; restarts when a new camera/video source starts
   const studentStatsRef = useRef<Map<string, StudentStat>>(new Map());
   const reportStartRef = useRef<number>(Date.now());
@@ -200,6 +208,12 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
 
             // Append newly triggered suspicious events from real AI model
             if (data.new_event_ids && data.new_event_ids.length > 0) {
+              // beep only when the panel gains an event, not for a student who already has a pending one
+              const reviewTracks = data.tracks.filter(t => t.status === 'REVIEW');
+              if (soundOnRef.current && reviewTracks.some(t =>
+                !eventsRef.current.some(e => e.track_id === t.track_id && e.review_status === 'PENDING'))) {
+                playAlertBeep();
+              }
               data.tracks.filter(t => t.status === 'REVIEW').forEach(track => {
                 setEvents(prevEvents => {
                   if (prevEvents.some(e => e.track_id === track.track_id && e.review_status === 'PENDING')) {
@@ -414,6 +428,17 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     }
   }, [modelConfig.sessionId]);
 
+  const toggleSound = useCallback(() => {
+    const next = !soundOnRef.current;
+    soundOnRef.current = next;
+    setSoundOn(next);
+    try { localStorage.setItem('visionguard_sound', next ? 'on' : 'off'); } catch { /* private mode */ }
+    if (next) {
+      unlockAlertSound();
+      playAlertBeep();   // let the invigilator hear what the alert sounds like
+    }
+  }, []);
+
   const openReport = useCallback(() => {
     openSessionReport({
       sessionId: modelConfig.sessionId,
@@ -429,6 +454,8 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
     openReport,
     sensitivity,
     setSensitivity,
+    soundOn,
+    toggleSound,
     tracks,
     events,
     fps,

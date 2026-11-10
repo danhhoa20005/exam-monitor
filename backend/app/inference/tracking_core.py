@@ -12,7 +12,7 @@ try:
 except ImportError:
     np = None
     cv2 = None
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 
 from app.config import settings
 from app.protocol import EventRef, FrameResult, TrackResult
@@ -56,6 +56,7 @@ class SessionInferencePipeline:
         self.is_pose_model = False
         self.is_custom_student_model = False
         self.source_id: Optional[str] = None
+        self._reset_aux_cache()
         self._init_yolo()
         self.turn_classifier = None
         if self.is_pose_model and os.path.exists(settings.TURN_CLS_MODEL_PATH):
@@ -76,6 +77,11 @@ class SessionInferencePipeline:
                 print(f"[OK] Phone detector loaded: {settings.PHONE_MODEL_PATH}")
             except Exception as e:
                 print(f"[WARN] Failed to load phone detector: {e}")
+
+    def _reset_aux_cache(self):
+        self._aux_frame_no = 0
+        self._turn_prob_cache: Dict[int, float] = {}
+        self._phone_boxes_cache = None
 
     def _init_yolo(self):
         """Initialize YOLO11-Pose detector (from dyingangell/Cheating-detection-YOLO) or custom weights."""
@@ -230,22 +236,7 @@ class SessionInferencePipeline:
         active_track_ids = [d[0] for d in detections]
         self.pose_engine.remove_lost_tracks(active_track_ids)
 
-        turn_probs = [None] * len(detections)
-        if self.turn_classifier is not None and detections:
-            try:
-                boxes_px = [(b[0] * w_frame, b[1] * h_frame, b[2] * w_frame, b[3] * h_frame) for _, b, _, _, _ in detections]
-                turn_probs = self.turn_classifier.predict(frame_bgr, boxes_px)
-            except Exception as e:
-                print(f"[WARN] Turn classifier error: {e}")
-
-        phone_boxes = None
-        if self.phone_detector is not None and detections:
-            try:
-                r = self.phone_detector(frame_bgr, imgsz=settings.YOLO_IMGSZ, conf=settings.PHONE_CONF,
-                                        classes=[PHONE_CLASS_ID], verbose=False)[0]
-                phone_boxes = r.boxes.xyxy.tolist()
-            except Exception as e:
-                print(f"[WARN] Phone detector error: {e}")
+        turn_probs, phone_boxes = self._aux_inputs(frame_bgr, detections, w_frame, h_frame)
 
         for (track_id, bbox_norm, conf, act_name, kpts), turn_prob in zip(detections, turn_probs):
             phone_seen = phone_near_wrists(kpts, phone_boxes) if phone_boxes is not None else None
@@ -305,6 +296,37 @@ class SessionInferencePipeline:
         invigilator took over an occluded student's seat and inherited their posture -> 2 false alerts)."""
         return {tid: seat for tid, (seat, _) in self.seats.assign(detections).items()}
 
+    def _aux_inputs(self, frame_bgr, detections, w_frame, h_frame):
+        """
+        (P(turn) per detection, phone boxes in px) from the two helper models. With
+        AUX_MODEL_EVERY_N = n > 1 each runs on 1 frame in n (turn_cls at offset 0, phone at n // 2,
+        so no frame pays for both) and the other frames reuse the last result.
+        """
+        n = max(1, settings.AUX_MODEL_EVERY_N)
+        k = self._aux_frame_no
+        self._aux_frame_no += 1
+        if not detections:
+            return [], None
+
+        track_ids = [d[0] for d in detections]
+        if self.turn_classifier is not None and k % n == 0:
+            try:
+                boxes_px = [(b[0] * w_frame, b[1] * h_frame, b[2] * w_frame, b[3] * h_frame) for _, b, _, _, _ in detections]
+                probs = self.turn_classifier.predict(frame_bgr, boxes_px)
+                self._turn_prob_cache = {tid: p for tid, p in zip(track_ids, probs) if p is not None}
+            except Exception as e:
+                print(f"[WARN] Turn classifier error: {e}")
+        turn_probs = [self._turn_prob_cache.get(tid) for tid in track_ids]
+
+        if self.phone_detector is not None and k % n == n // 2:
+            try:
+                r = self.phone_detector(frame_bgr, imgsz=settings.YOLO_IMGSZ, conf=settings.PHONE_CONF,
+                                        classes=[PHONE_CLASS_ID], verbose=False)[0]
+                self._phone_boxes_cache = r.boxes.xyxy.tolist()
+            except Exception as e:
+                print(f"[WARN] Phone detector error: {e}")
+        return turn_probs, self._phone_boxes_cache
+
     def reset_tracking(self, now_ms: int):
         """
         Forget every track, track ID and per-student baseline. Without this, a new video is
@@ -315,6 +337,7 @@ class SessionInferencePipeline:
         self.evidence.flush()   # frames from the new source must not end up in the old clips
         self.evidence.reset_buffer()
         self.seats.reset()
+        self._reset_aux_cache()
         self.pose_engine.reset_session()
         predictor = getattr(self.yolo_model, "predictor", None) if self.yolo_model is not None else None
         for tracker in getattr(predictor, "trackers", None) or []:

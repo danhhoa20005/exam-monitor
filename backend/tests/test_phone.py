@@ -64,3 +64,19 @@ def test_phone_during_calibration_reviews_right_after():
     res = run(engine, 3, [True] * (settings.CALIBRATION_SAMPLES + 2))
     assert res.status == "REVIEW"
     assert "PHONE" in res.reasons
+
+
+def test_flickering_phone_detection_still_reviews():
+    # DS-03 v_c1_s3_s4 with the detector on alternate frames: hits come in pairs with 2-frame gaps.
+    # A short gap must not restart the phone timer (hysteresis: on above PHONE_EMA_ON, off below PHONE_EMA_OFF).
+    engine = PoseBehaviorEngine()
+    res = run(engine, 4, [False] * 20 + [True, True, False, False] * 5)
+    assert res.status == "REVIEW"
+    assert "PHONE" in res.reasons
+
+
+def test_phone_put_away_clears_timer():
+    engine = PoseBehaviorEngine()
+    run(engine, 5, [False] * 20 + [True] * 8 + [False] * 10)
+    state = engine.track_states[5]
+    assert state.phone_start_ms is None and state.phone_duration_ms == 0

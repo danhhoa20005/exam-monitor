@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MonitoringEvent, EventReviewStatus } from '../../types/monitoring';
-import { AlertTriangle, CheckCircle2, Eye, XCircle, Clock, Download, FileSpreadsheet, Film, FileText } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Eye, XCircle, Clock, Download, FileSpreadsheet, Film, FileText, Volume2, VolumeX } from 'lucide-react';
 
 // The backend still records the 5 s after the alert, so ask before opening the clip
 async function openEvidence(url: string, setNote: (msg: string) => void) {
@@ -26,6 +26,8 @@ interface EventPanelProps {
   onExportCsv: () => void;
   onExportJson: () => void;
   onExportReport?: () => void;
+  soundOn?: boolean;
+  onToggleSound?: () => void;
 }
 
 export const EventPanel: React.FC<EventPanelProps> = ({
@@ -33,20 +35,39 @@ export const EventPanel: React.FC<EventPanelProps> = ({
   onUpdateStatus,
   onExportCsv,
   onExportJson,
-  onExportReport
+  onExportReport,
+  soundOn,
+  onToggleSound
 }) => {
   const [clipNotes, setClipNotes] = useState<Record<string, string>>({});
   return (
     <div className="flex flex-col gap-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <AlertTriangle size={18} className="text-amber-400" />
-          <h2 className="text-sm font-semibold text-slate-100">
+          <h2 className="text-sm font-semibold text-slate-100 whitespace-nowrap">
             Nhật Ký Sự Kiện Nghi Vấn ({events.length})
           </h2>
         </div>
 
+        <div className="flex flex-wrap items-center gap-1 whitespace-nowrap">
+          {onToggleSound && (
+            <button
+              type="button"
+              onClick={onToggleSound}
+              aria-pressed={soundOn}
+              className={`px-2 py-1 text-xs font-medium rounded-lg flex items-center gap-1 border transition-all ${
+                soundOn
+                  ? 'text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50 border-emerald-800/60'
+                  : 'text-slate-400 bg-slate-800/80 hover:bg-slate-700 border-slate-700'
+              }`}
+              title={soundOn ? 'Âm báo đang bật: kêu bíp khi có sự kiện nghi vấn mới. Bấm để tắt.' : 'Âm báo đang tắt. Bấm để bật.'}
+            >
+              {soundOn ? <Volume2 size={12} /> : <VolumeX size={12} />}
+              <span>{soundOn ? 'Âm báo' : 'Tắt tiếng'}</span>
+            </button>
+          )}
         {events.length > 0 && (
           <div className="flex items-center gap-1">
             <button
@@ -80,6 +101,7 @@ export const EventPanel: React.FC<EventPanelProps> = ({
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Events List */}

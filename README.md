@@ -195,6 +195,7 @@ Mỗi khung hình (960 px, ~64 ms trên RTX 4060) đi qua 3 model: **YOLO11-Pose
   - P(turn) của turn_cls (làm mượt) $\ge 0.8$ **và** cao hơn mốc riêng của thí sinh $\ge 0.5$.
 - **Dùng điện thoại (PHONE)**, kéo dài $\ge 1$ giây: khung "cell phone" (độ tin cậy $\ge 0.3$) cách cổ tay $\le 0.5$ lần độ rộng vai,
   nhỏ và dài như điện thoại thật (diện tích $\le 0.05$ vai², tỉ lệ dài/rộng $\ge 1.3$) — loại tay cầm bút bị nhận nhầm.
+  Có ngưỡng trễ: bắt đầu tính khi tín hiệu làm mượt > 0.35, chỉ dừng khi < 0.2, nên detector sót 1–2 khung không làm đếm lại.
 - **Cúi người (BENDING)**: chỉ là nhãn đi kèm, không tự gây cảnh báo (cúi viết bài là bình thường).
 - **Cúi gập nhìn dưới bàn (UNDER_DESK, FT-03)**: đỉnh đầu (mép trên khung người) hạ $\ge 0.5$ lần độ rộng vai so với mốc,
   kéo dài $\ge 3$ giây — vẫn đánh giá được khi mặt bị che. Chỉ áp dụng khi người đủ lớn (vai $\ge 9\%$ chiều rộng ảnh).
@@ -209,8 +210,13 @@ Mỗi khung hình (960 px, ~64 ms trên RTX 4060) đi qua 3 model: **YOLO11-Pose
 - **Clip bằng chứng (FT-06)**: mỗi sự kiện REVIEW mới tự lưu clip MP4 (H.264) gồm 5 giây trước + 5 giây sau, thí sinh
   bị khoanh đỏ, vào `backend/evidence/<phiên>/<sự kiện>.mp4` (tối đa 50 clip/phiên). Xem bằng nút **Clip** trong
   "Nhật Ký Sự Kiện" hoặc API `GET /api/sessions/{session_id}/evidence/{event_id}` (`.../status` để biết đã ghi xong chưa).
+- **Âm báo (FT-11)**: kêu 2 tiếng bíp khi bảng "Nhật Ký Sự Kiện" có sự kiện nghi vấn mới (không kêu lặp cho thí sinh
+  đang có sự kiện chờ xử lý). Nút **Âm báo / Tắt tiếng** ở đầu bảng, trình duyệt nhớ lựa chọn.
+- **Chế độ hiệu năng (MS-02)**: pose + theo dõi chạy mọi khung; turn_cls và detector điện thoại mỗi model chạy 1/2 số khung,
+  so le nhau, khung còn lại dùng kết quả gần nhất (`AUX_MODEL_EVERY_N=2`, đặt `1` để chạy mọi khung).
+  Lớp đông người trên RTX 4060, ảnh 960 px: 53 → 39 ms/khung (18.8 → **25.4 FPS**), kết quả đánh giá không giảm.
 
-Kết quả trên tập test DS-03 (sinh viên 5–8, không dùng để chỉnh): nhìn bài bạn 4/4, điện thoại 5/8,
+Kết quả trên tập test DS-03 (sinh viên 5–8, không dùng để chỉnh): nhìn bài bạn 4/4, điện thoại 6/8,
 **báo nhầm người bình thường 0/16**. Chi tiết: [`training/README.md`](training/README.md).
 
 ---

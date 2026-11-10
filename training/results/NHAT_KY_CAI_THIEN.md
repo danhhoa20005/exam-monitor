@@ -77,3 +77,15 @@ Trên DS-03, luật và luật+AI cho kết quả như nhau; turn_cls v2 chỉ t
   → 2 báo nhầm, không thêm ca đúng nào. Giữ số ghế nhưng ID mới tự lấy mốc; khung khác hẳn kích thước không được nhận ghế.
 - FT-03 (cúi gập dưới bàn): DS-03 không có hành vi này (đầu người bình thường hạ ≤ 0.14 vai, cao nhất 0.29 ở người dùng phao)
   → đặt ngưỡng 0.5 vai, ≥ 3 s, chỉ khi người đủ lớn; đã kiểm chứng **không gây báo nhầm**, chưa kiểm chứng được khả năng bắt đúng.
+
+## A2 — chế độ hiệu năng (mốc MS-02 ≥ 25 FPS) + ngưỡng trễ cho điện thoại
+- Đo trên classroom.mp4 (lớp đông, RTX 4060, 960 px): pose+ByteTrack ~25 ms, turn_cls ~14 ms, phone ~15 ms → 53 ms/khung = **18.8 FPS**.
+- `AUX_MODEL_EVERY_N = 2`: turn_cls và phone mỗi model chạy 1/2 số khung, so le (không khung nào chạy cả hai),
+  khung bỏ qua dùng lại kết quả gần nhất. Pose + theo dõi vẫn chạy mọi khung → 39 ms/khung = **25.4 FPS**.
+- Lần chạy đầu: điện thoại 11/17 → 9/17 (mất `v_c1_s3_s4`, cả 2 người). Nguyên nhân: detector chập chờn `11..11..11`,
+  chạy cách khung làm mỗi khoảng trống 1 khung thành 2 khung → EMA tụt dưới 0.35, bộ đếm 1 s bị reset liên tục
+  (ở cấu hình cũ ca này cũng chỉ vừa đủ: 2 khung REVIEW).
+- Sửa: ngưỡng trễ — bắt đầu đếm khi EMA > 0.35, chỉ dừng khi EMA < 0.2 (`PHONE_EMA_OFF`).
+- Kết quả (`eval/r13_aux2_hyst.csv`): nhìn bài bạn 7/8, **điện thoại 12/17** (test 6/8), đổi bài 3/8, phao 2/8, **báo nhầm 0/33**.
+- classroom.mp4: 5 lượt cảnh báo giống hệt cấu hình cũ (1 lượt chậm 0.1 s), không thêm báo nhầm.
+- Không dùng FP16: nhanh thêm ~10 ms nhưng đổi kết quả số học của cả 3 model, phải đánh giá lại từ đầu.
