@@ -196,6 +196,9 @@ Mỗi khung hình (960 px, ~64 ms trên RTX 4060) đi qua 3 model: **YOLO11-Pose
 - **Dùng điện thoại (PHONE)**, kéo dài $\ge 1$ giây: khung "cell phone" (độ tin cậy $\ge 0.3$) cách cổ tay $\le 0.5$ lần độ rộng vai,
   nhỏ và dài như điện thoại thật (diện tích $\le 0.05$ vai², tỉ lệ dài/rộng $\ge 1.3$) — loại tay cầm bút bị nhận nhầm.
 - **Cúi người (BENDING)**: chỉ là nhãn đi kèm, không tự gây cảnh báo (cúi viết bài là bình thường).
+- **Clip bằng chứng (FT-06)**: mỗi sự kiện REVIEW mới tự lưu clip MP4 (H.264) gồm 5 giây trước + 5 giây sau, thí sinh
+  bị khoanh đỏ, vào `backend/evidence/<phiên>/<sự kiện>.mp4` (tối đa 50 clip/phiên). Xem bằng nút **Clip** trong
+  "Nhật Ký Sự Kiện" hoặc API `GET /api/sessions/{session_id}/evidence/{event_id}` (`.../status` để biết đã ghi xong chưa).
 
 Kết quả trên tập test DS-03 (sinh viên 5–8, không dùng để chỉnh): nhìn bài bạn 4/4, điện thoại 5/8,
 **báo nhầm người bình thường 0/16**. Chi tiết: [`training/README.md`](training/README.md).

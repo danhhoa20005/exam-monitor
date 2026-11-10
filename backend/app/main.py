@@ -7,6 +7,7 @@ import time
 import uuid
 import json
 import asyncio
+import re
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -22,7 +23,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 
 from app.config import settings
 from app.protocol import (
@@ -220,6 +221,37 @@ def export_session_report(session_id: str, format: str = Query("csv", pattern="^
             content=json_data,
             headers={"Content-Disposition": f"attachment; filename=exam_summary_{session_id}.json"}
         )
+
+# ----------------- Evidence Clips (FT-06) -----------------
+
+_SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+def _evidence_path(session_id: str, event_id: str) -> Path:
+    if not _SAFE_ID.match(session_id) or not _SAFE_ID.match(event_id):
+        raise HTTPException(status_code=400, detail="Mã phiên hoặc mã sự kiện không hợp lệ.")
+    return Path(settings.EVIDENCE_DIR) / session_id / f"{event_id}.mp4"
+
+def _evidence_status(session_id: str, event_id: str) -> str:
+    if _evidence_path(session_id, event_id).exists():
+        return "ready"
+    session = session_manager.get_session(session_id)
+    if session:
+        return session.pipeline.evidence.status(event_id)   # "recording" while the 5 s after are captured
+    return "missing"
+
+@app.get("/api/sessions/{session_id}/evidence/{event_id}/status")
+def evidence_status(session_id: str, event_id: str):
+    """ready / recording (still capturing the seconds after the alert) / missing."""
+    return {"event_id": event_id, "status": _evidence_status(session_id, event_id)}
+
+@app.get("/api/sessions/{session_id}/evidence/{event_id}")
+def evidence_clip(session_id: str, event_id: str):
+    """MP4 clip: 5 s before and after the alert, flagged student boxed in red."""
+    path = _evidence_path(session_id, event_id)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Clip chưa sẵn sàng hoặc không tồn tại.")
+    return FileResponse(path, media_type="video/mp4", filename=f"bang_chung_{event_id}.mp4",
+                        content_disposition_type="inline")
 
 # ----------------- Real-time WebSocket Protocol -----------------
 

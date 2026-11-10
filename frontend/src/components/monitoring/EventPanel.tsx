@@ -1,6 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MonitoringEvent, EventReviewStatus } from '../../types/monitoring';
-import { AlertTriangle, CheckCircle2, Eye, XCircle, Clock, Download, FileSpreadsheet } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Eye, XCircle, Clock, Download, FileSpreadsheet, Film } from 'lucide-react';
+
+// The backend still records the 5 s after the alert, so ask before opening the clip
+async function openEvidence(url: string, setNote: (msg: string) => void) {
+  try {
+    const res = await fetch(`${url}/status`);
+    const { status } = await res.json();
+    if (status === 'ready') {
+      setNote('');
+      window.open(url, '_blank', 'noopener');
+    } else if (status === 'recording') {
+      setNote('Đang ghi 5 giây sau sự kiện, thử lại sau vài giây...');
+    } else {
+      setNote('Không có clip (đã đạt giới hạn 50 clip/phiên hoặc phiên đã khởi động lại).');
+    }
+  } catch {
+    setNote('Không kết nối được tới AI backend để lấy clip.');
+  }
+}
 
 interface EventPanelProps {
   events: MonitoringEvent[];
@@ -15,6 +33,7 @@ export const EventPanel: React.FC<EventPanelProps> = ({
   onExportCsv,
   onExportJson
 }) => {
+  const [clipNotes, setClipNotes] = useState<Record<string, string>>({});
   return (
     <div className="flex flex-col gap-3">
       {/* Header */}
@@ -94,7 +113,21 @@ export const EventPanel: React.FC<EventPanelProps> = ({
                   {evt.max_yaw_delta !== undefined && (
                     <span>Max Yaw: <strong className="text-slate-200 font-mono">{evt.max_yaw_delta}°</strong></span>
                   )}
+                  {evt.evidence_url && (
+                    <button
+                      type="button"
+                      onClick={() => openEvidence(evt.evidence_url!, msg => setClipNotes(n => ({ ...n, [evt.event_id]: msg })))}
+                      className="ml-auto px-2 py-0.5 rounded-md text-[11px] font-medium flex items-center gap-1 bg-sky-950/50 text-sky-300 hover:bg-sky-900/60 border border-sky-800/50 transition-all"
+                      title="Xem clip bằng chứng 5 giây trước và sau sự kiện"
+                    >
+                      <Film size={12} />
+                      <span>Clip</span>
+                    </button>
+                  )}
                 </div>
+                {clipNotes[evt.event_id] && (
+                  <p className="mt-1.5 text-[11px] text-sky-300/80">{clipNotes[evt.event_id]}</p>
+                )}
 
                 {/* Supervisor Review Action Buttons */}
                 <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-800/60">

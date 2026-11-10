@@ -55,6 +55,9 @@ backend/models/*.task
 
 # Training workspace: datasets, training runs, eval videos (several GB) - see training/README.md
 training/workspace/
+
+# Evidence clips recorded at runtime (FT-06)
+backend/evidence/
 model/
 *.log
 backend/*.log

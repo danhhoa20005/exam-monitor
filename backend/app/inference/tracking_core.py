@@ -15,7 +15,8 @@ except ImportError:
 from typing import List, Tuple, Optional
 
 from app.config import settings
-from app.protocol import FrameResult, TrackResult
+from app.protocol import EventRef, FrameResult, TrackResult
+from app.inference.evidence import EvidenceRecorder
 from app.inference.pose_behavior import PoseBehaviorEngine
 from app.inference.events import EventManager
 
@@ -47,6 +48,8 @@ class SessionInferencePipeline:
         self.session_id = session_id
         self.pose_engine = PoseBehaviorEngine()
         self.event_manager = EventManager(session_id)
+        self.evidence = EvidenceRecorder(settings.EVIDENCE_DIR / session_id, pre_s=settings.EVIDENCE_PRE_S,
+                                         post_s=settings.EVIDENCE_POST_S, max_clips=settings.EVIDENCE_MAX_CLIPS)
         self.yolo_model = None
         self.is_pose_model = False
         self.is_custom_student_model = False
@@ -269,6 +272,14 @@ class SessionInferencePipeline:
             captured_at_ms=captured_at_ms
         )
 
+        # 5. Evidence clips (FT-06): buffer this frame, start a clip for every new event
+        self.evidence.add_frame(captured_at_ms, image_data, {t.track_id: t.bbox_xyxy_norm for t in track_results})
+        new_events = []
+        for eid in new_event_ids:
+            event = self.event_manager.events[eid]
+            self.evidence.trigger(eid, event.track_id, event.reasons[0], captured_at_ms)
+            new_events.append(EventRef(event_id=eid, track_id=event.track_id))
+
         total_processing_ms = int((time.perf_counter() - t0) * 1000)
 
         return FrameResult(
@@ -280,7 +291,8 @@ class SessionInferencePipeline:
             pose_ms=pose_ms,
             frame_size=(w_frame, h_frame),
             tracks=track_results,
-            new_event_ids=new_event_ids
+            new_event_ids=new_event_ids,
+            new_events=new_events
         )
 
     def reset_tracking(self, now_ms: int):
@@ -290,6 +302,8 @@ class SessionInferencePipeline:
         their baselines, which inverts the result when that baseline was a turned head.
         """
         self.event_manager.close_all_on_stop(now_ms)
+        self.evidence.flush()   # frames from the new source must not end up in the old clips
+        self.evidence.reset_buffer()
         self.pose_engine.reset_session()
         predictor = getattr(self.yolo_model, "predictor", None) if self.yolo_model is not None else None
         for tracker in getattr(predictor, "trackers", None) or []:
@@ -299,4 +313,5 @@ class SessionInferencePipeline:
         """Release session resources."""
         now_ms = int(time.time() * 1000)
         self.event_manager.close_all_on_stop(now_ms)
+        self.evidence.flush()
         self.pose_engine.reset_session()

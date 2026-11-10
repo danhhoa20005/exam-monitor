@@ -59,6 +59,10 @@ class TrackResult(BaseModel):
     turn_count_10s: Optional[int] = 0
     ai_turn_prob: Optional[float] = None   # smoothed P(turn) from the team's crop classifier
 
+class EventRef(BaseModel):
+    event_id: str
+    track_id: int
+
 class FrameResult(BaseModel):
     type: Literal["result"] = "result"
     session_id: str
@@ -70,6 +74,7 @@ class FrameResult(BaseModel):
     frame_size: Tuple[int, int]
     tracks: List[TrackResult]
     new_event_ids: List[str] = []
+    new_events: List[EventRef] = []   # same events with their student, so the UI can link the evidence clip
 
 class ErrorMessage(BaseModel):
     type: Literal["error"] = "error"

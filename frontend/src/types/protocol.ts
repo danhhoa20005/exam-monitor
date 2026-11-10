@@ -58,6 +58,7 @@ export interface ServerMonitoringResult {
   frame_size: [number, number]; // [width, height]
   tracks: TrackResult[];
   new_event_ids?: string[];
+  new_events?: { event_id: string; track_id: number }[]; // links each new event to its student (evidence clip)
 }
 
 export interface ServerPongMessage {

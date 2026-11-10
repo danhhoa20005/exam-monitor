@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     PHONE_EMA_ALPHA: float = 0.3            # per-track smoothing of the per-frame "phone in hand" flag
     PHONE_EMA_ON: float = 0.35              # smoothed flag above this counts as holding a phone
     PHONE_TRIGGER_S: float = float(os.getenv("PHONE_TRIGGER_S", "1.0"))
+
+    # FT-06 evidence clips: PRE seconds before + POST seconds after each new REVIEW event
+    EVIDENCE_DIR: Path = Path(os.getenv("EVIDENCE_DIR", str(BASE_DIR / "evidence")))
+    EVIDENCE_PRE_S: float = float(os.getenv("EVIDENCE_PRE_S", "5.0"))
+    EVIDENCE_POST_S: float = float(os.getenv("EVIDENCE_POST_S", "5.0"))
+    EVIDENCE_MAX_CLIPS: int = int(os.getenv("EVIDENCE_MAX_CLIPS", "50"))   # per session, caps disk use
     FALLBACK_YOLO_PATH: Path = BASE_DIR / "models" / "yolov8s.pt"
     POSE_MODEL_PATH: Path = BASE_DIR / "models" / "pose_landmarker_lite.task"
     BYTETRACK_CONFIG_PATH: Path = BASE_DIR / "config" / "bytetrack.yaml"

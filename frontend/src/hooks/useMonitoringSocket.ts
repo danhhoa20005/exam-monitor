@@ -182,8 +182,11 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
                   if (prevEvents.some(e => e.track_id === track.track_id && e.review_status === 'PENDING')) {
                     return prevEvents;
                   }
+                  const ref = data.new_events?.find(e => e.track_id === track.track_id);
+                  const apiBase = (modelConfig.apiUrl || getEffectiveApiBaseUrl()).replace(/\/+$/, '');
                   const newEvt: MonitoringEvent = {
-                    event_id: `evt-${Date.now()}-${track.track_id}`,
+                    event_id: ref ? ref.event_id : `evt-${Date.now()}-${track.track_id}`,
+                    evidence_url: ref ? `${apiBase}/api/sessions/${data.session_id}/evidence/${ref.event_id}` : undefined,
                     session_id: modelConfig.sessionId,
                     track_id: track.track_id,
                     reasons: track.reasons.length > 0 ? track.reasons : ['Nghi vấn tư thế bất thường'],

@@ -54,6 +54,7 @@ export interface MonitoringEvent {
   review_status: EventReviewStatus;
   reviewer?: string;
   reviewed_at?: string;
+  evidence_url?: string; // 5 s before/after MP4 recorded by the backend (FT-06)
 }
 
 export type SocketConnectionState = 
