@@ -89,3 +89,11 @@ Trên DS-03, luật và luật+AI cho kết quả như nhau; turn_cls v2 chỉ t
 - Kết quả (`eval/r13_aux2_hyst.csv`): nhìn bài bạn 7/8, **điện thoại 12/17** (test 6/8), đổi bài 3/8, phao 2/8, **báo nhầm 0/33**.
 - classroom.mp4: 5 lượt cảnh báo giống hệt cấu hình cũ (1 lượt chậm 0.1 s), không thêm báo nhầm.
 - Không dùng FP16: nhanh thêm ~10 ms nhưng đổi kết quả số học của cả 3 model, phải đánh giá lại từ đầu.
+
+## Chốt chế độ hiệu năng: 1/3 khung (`AUX_MODEL_EVERY_N=3`)
+- Đo lại bằng `tools/benchmark.py` (classroom.mp4, 400 khung): chế độ 1/2 dao động 38–41 ms (24,6–26 FPS), có lần
+  dưới mốc 25 FPS; chế độ 1/3 ổn định 35 ms = **28,4–28,7 FPS**.
+- DS-03 (`eval/r14_aux3.csv`): nhìn bài bạn **8/8**, điện thoại 12/17, phao 4/8, đổi bài 3/8, **báo nhầm 0/33**.
+  Tập test giữ nguyên (4/4, 6/8, 0/16); 3 ca bắt thêm đều ở tập dev (v_c3_s2, v_c4_s1, v_c4_s2) — coi là "không giảm",
+  không coi là cải thiện vì có thể do lệch nhịp lấy mẫu.
+- classroom.mp4: 5 lượt cảnh báo, cùng ghế với cấu hình cũ (lệch ±0,1 s), không thêm báo nhầm.

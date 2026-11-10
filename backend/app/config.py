@@ -51,7 +51,6 @@ class Settings(BaseSettings):
     # 960 finds ~23 of the students in a 720p classroom shot vs ~16 at 640 (yolo11l-pose, ~22ms on RTX 4060)
     YOLO_IMGSZ: int = int(os.getenv("YOLO_IMGSZ", "960"))
     YOLO_CONF: float = float(os.getenv("YOLO_CONF", "0.25"))
-    YOLO_MODEL_PATH: Path = BASE_DIR / "models" / "best.pt"
     # Optional team-trained turn/normal crop classifier (training/train_turn_cls.py); skipped if the file is absent
     TURN_CLS_MODEL_PATH: Path = BASE_DIR / "models" / os.getenv("TURN_CLS_MODEL", "turn_cls.pt")
     TURN_CLS_EMA_ALPHA: float = float(os.getenv("TURN_CLS_EMA_ALPHA", "0.3"))   # per-track smoothing at ~10 FPS
@@ -74,7 +73,9 @@ class Settings(BaseSettings):
 
     # MS-02 performance mode: run turn_cls and the phone detector on 1 frame in N each, staggered,
     # and reuse their last result in between (pose + tracking still run on every frame). 1 = every frame.
-    AUX_MODEL_EVERY_N: int = int(os.getenv("AUX_MODEL_EVERY_N", "2"))
+    # classroom.mp4 (~23 people, RTX 4060): N=1 53 ms, N=2 38-41 ms (24.6-26 FPS), N=3 35 ms (28.5 FPS);
+    # DS-03 with N=3: look-at-paper 8/8, phone 12/17, false alarms 0/33 (no loss vs N=1/2).
+    AUX_MODEL_EVERY_N: int = int(os.getenv("AUX_MODEL_EVERY_N", "3"))
 
     # FT-04 risk score: suspicious seconds inside a sliding window; RISK_FULL_S of them = 100 points
     RISK_WINDOW_S: float = float(os.getenv("RISK_WINDOW_S", "30"))
@@ -93,12 +94,8 @@ class Settings(BaseSettings):
     EVIDENCE_PRE_S: float = float(os.getenv("EVIDENCE_PRE_S", "5.0"))
     EVIDENCE_POST_S: float = float(os.getenv("EVIDENCE_POST_S", "5.0"))
     EVIDENCE_MAX_CLIPS: int = int(os.getenv("EVIDENCE_MAX_CLIPS", "50"))   # per session, caps disk use
-    FALLBACK_YOLO_PATH: Path = BASE_DIR / "models" / "yolov8s.pt"
-    POSE_MODEL_PATH: Path = BASE_DIR / "models" / "pose_landmarker_lite.task"
     BYTETRACK_CONFIG_PATH: Path = BASE_DIR / "config" / "bytetrack.yaml"
     
-    # Expected Weights Checksum (SHA-256)
-    EXPECTED_YOLO_SHA256: str = "c1ea0a60e07a33c4bd01263e261e644cd74cf2520d164acf9512f5828512bbe1"
     
     # Algorithm Rules & Thresholds (dyingangell/Cheating-detection-YOLO)
     CALIBRATION_SAMPLES: int = 20              # 20 consecutive valid pose samples per ID

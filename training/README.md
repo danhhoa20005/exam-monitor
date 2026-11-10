@@ -98,11 +98,11 @@ python eval_videos.py --videos thu_muc --labels nhan.csv # video của nhóm; nh
 ```
 
 Mỗi (video, người) là một mẫu: người gian lận phải bị báo REVIEW, người bình thường không được báo.
-Kết quả cấu hình cuối (`results/eval/r13_aux2_hyst.csv`, chế độ hiệu năng + ngưỡng trễ điện thoại):
+Kết quả cấu hình cuối (`results/eval/r14_aux3.csv`, chế độ hiệu năng 1/3 khung + ngưỡng trễ điện thoại):
 
 | Tập | Nhìn bài bạn | Điện thoại | Đổi bài | Phao | Báo nhầm người bình thường | Precision |
 |---|---|---|---|---|---|---|
-| dev (sv 1–4) | 3/4 | 6/9 | 0/4 | 1/4 | 0/17 | 1.00 |
+| dev (sv 1–4) | 4/4 | 6/9 | 0/4 | 3/4 | 0/17 | 1.00 |
 | **test (sv 5–8)** | **4/4** | **6/8** | 3/4 | 1/4 | **0/16** | **1.00** |
 
 ## 7. Nguồn tham khảo

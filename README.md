@@ -1,6 +1,6 @@
 # VisionGuard AI — Hệ Thống Giám Sát Phòng Thi Trực Tuyến Thông Minh
 
-Hệ thống giám sát tư thế thí sinh phòng thi thời gian thực thế hệ mới, tích hợp model **YOLO11-Pose** (từ repo [dyingangell/Cheating-detection-YOLO](https://github.com/dyingangell/Cheating-detection-YOLO)), **ByteTrack**, bộ đo độ lệch tư thế đầu (Normalized Head Offset & Torso Angle), bộ tự động hiệu chuẩn mốc cá nhân (Auto-Calibration EMA), bộ lọc phân biệt cúi viết bài vs quay cóp, và giao diện **Cyberpunk Tactical HUD (React + Vite + TypeScript)**. Tối ưu hoàn hảo cho cả máy tính để bàn và thiết bị di động (Responsive).
+Hệ thống hỗ trợ giám thị phát hiện gian lận trong phòng thi từ camera thường, theo thời gian thực: **YOLO11-Pose** + **ByteTrack** theo dõi từng thí sinh, **turn_cls** (mô hình phân loại quay đầu do nhóm huấn luyện), **YOLO11m** phát hiện điện thoại, và bộ luật so mỗi thí sinh với **mốc tư thế riêng** của chính họ. Giao diện **React + Vite + TypeScript** cho giám thị: cảnh báo, clip bằng chứng, biên bản ca thi. Đánh giá trên bộ video DS-03: nhìn bài bạn 4/4, điện thoại 6/8, **0/16 báo nhầm** (tập test).
 
 ---
 
@@ -9,9 +9,9 @@ Hệ thống giám sát tư thế thí sinh phòng thi thời gian thực thế 
 2. [Cấu Trúc Thư Mục](#-cấu-trúc-thư-mục)
 3. [Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
 4. [Hướng Dẫn Cài Đặt & Khởi Chạy](#-hướng-dẫn-cài-đặt--khởi-chạy)
-   - [Cách 1: Khởi động nhanh (Khuyên dùng)](#cách-1-khởi-động-nhanh-khuyên-dùng)
-   - [Cách 2: Khởi động thủ công từng phần](#cách-2-khởi-động-thủ-công-từng-phần)
-   - [Cách kết nối từ xa trên Điện thoại (Cloudflare Tunnel)](#cách-kết-nối-từ-xa-trên-điện-thoại-cloudflare-tunnel)
+   - [Cách 1: Một máy chủ (khuyên dùng, cũng là cách demo)](#cách-1-một-máy-chủ-khuyên-dùng-cũng-là-cách-demo)
+   - [Cách 2: Chế độ phát triển (sửa giao diện)](#cách-2-chế-độ-phát-triển-sửa-giao-diện)
+   - [Truy cập từ máy khác / điện thoại](#-truy-cập-từ-máy-khác--điện-thoại)
    - [Cách kiểm thử bằng Video có sẵn](#cách-kiểm-thử-bằng-video-có-sẵn)
 5. [Quy Chuẩn AI & Phát Hiện Hành Vi](#-quy-chuẩn-ai--phát-hiện-hành-vi)
 6. [Hướng Dẫn Đẩy Code Lên GitHub](#-hướng-dẫn-đẩy-code-lên-github)
@@ -22,16 +22,13 @@ Hệ thống giám sát tư thế thí sinh phòng thi thời gian thực thế 
 
 ## 🌟 Tính Năng Nổi Bật
 
-- **YOLO11-Pose & Multi-Person Tracking**: Nhận diện người, theo dõi liên tục qua **ByteTrack** và trích xuất đồng thời 17 điểm mốc xương khớp (COCO Pose Keypoints) chỉ trong 1 lần suy luận duy nhất (Single Forward Pass).
-- **Thuật Toán Phát Hiện Gian Lận (dyingangell/Cheating-detection-YOLO)**:
-  - Chuẩn hoá toạ độ mũi theo độ rộng vai (`rel_nose_x`, `rel_nose_y`).
-  - Tự động lấy mốc tư thế cơ sở riêng cho từng thí sinh bằng giải thuật trung bình động luỹ thừa (`EMA Calibration`).
-  - Phân tách độ lệch ngang (`lateral_dev` - quay nhìn bài thí sinh bên cạnh) và độ lệch dọc (`depth_dev` - cúi xuống viết bài), triệt tiêu báo động giả khi thí sinh cúi làm bài (`depth suppression`).
-  - Bù trừ góc chụp nghiêng / camera gắn trần (`foreshortening compensation`).
-- **Thang Điểm Nghi Vấn (Hazard Meter 0 - 100)**: Tích luỹ điểm nghi vấn theo thời gian (`score_s`), tự động giảm điểm khi trở về bình thường, phân loại trạng thái: `CALIBRATING`, `WITHIN_THRESHOLDS`, `OBSERVING`, `REVIEW`.
-- **Tải Video Trực Tiếp (Video Test Suite)**: Cho phép tải file video (.mp4, .webm, .mov) lên thẳng Web HUD để giả lập bài thi mà không cần camera.
-- **Cloudflare Tunnel Tích Hợp Sẵn**: 1 lệnh sinh link HTTPS công khai để giám thị theo dõi trực tiếp từ điện thoại hoặc máy tính bảng ở bất cứ đâu.
-- **Giao diện Tactical HUD đỉnh cao**: Tối ưu hiển thị responsive, chế độ toàn màn hình, điều chỉnh FPS quét linh hoạt (15/30/60 FPS).
+- **Theo dõi từng thí sinh**: YOLO11-Pose (khung người + 17 điểm khớp) + ByteTrack; **số ghế cố định** khi bị che khuất (FT-01).
+- **Phát hiện hành vi**: quay đầu nhìn bài (FT-02), dùng điện thoại (FT-07), cúi gập dưới bàn (FT-03), so với mốc riêng từng người.
+- **Mô hình nhóm huấn luyện**: `turn_cls` (YOLO11s-cls) phân loại quay đầu trên ảnh cắt từng thí sinh — xem [`training/`](training/README.md).
+- **Điểm rủi ro 0–100 & thanh độ nhạy 1–5** (FT-04), áp dụng ngay trong phiên.
+- **Clip bằng chứng 5 s trước + 5 s sau** mỗi cảnh báo (FT-06), **âm báo** (FT-11), **biên bản ca thi PDF** (FT-10).
+- **Camera hoặc video tải lên**; đổi nguồn tự xoá trạng thái cũ và lấy mốc lại.
+- **Thời gian thực**: ~28 khung/giây với lớp ~23 người trên RTX 4060 (chế độ hiệu năng); web gửi 10 khung/giây.
 
 ---
 
@@ -61,6 +58,8 @@ exam-monitor/
 │   │       ├── tracking_core.py  # YOLO11-Pose + ByteTrack + phát hiện điện thoại, reset khi đổi nguồn video
 │   │       ├── pose_behavior.py  # Luật hành vi: quay đầu (mốc riêng từng người), cúi, điện thoại
 │   │       ├── turn_classifier.py# Model turn_cls của nhóm: phân loại quay đầu trên ảnh cắt từng người
+│   │       ├── seats.py          # Số ghế cố định (FT-01)
+│   │       ├── evidence.py       # Clip bằng chứng (FT-06)
 │   │       └── pnp_head_pose.py  # Hàm góc (chuẩn hoá ±180°)
 │   ├── models/                   # turn_cls.pt (nhóm train, có sẵn); yolo11l-pose.pt, yolo11m.pt tự tải
 │   ├── requirements.txt
@@ -70,11 +69,13 @@ exam-monitor/
 │   └── results/                  # Nhật ký 10 vòng cải thiện, bảng đánh giá, biểu đồ train
 │
 ├── tools/
-│   └── detect_cheating.py        # Công cụ chạy thử nghiệm trực tiếp camera/video với YOLO11-Pose HUD
+│   ├── benchmark.py              # Đo tốc độ pipeline (ms/khung, FPS) trên một video
+│   └── render_demo.py            # Render video demo từ pipeline thật
+├── docs/                         # Báo cáo, kế hoạch, kịch bản demo, hướng dẫn quay video
 ├── scripts/
-│   ├── start-ai-server.sh        # Khởi động Backend + Cloudflare Tunnel tự động
-│   ├── start_backend.sh          # Khởi động Backend độc lập
-│   ├── start_tunnel.sh           # Mở Cloudflare Tunnel
+│   ├── start_backend.sh          # Khởi động backend (macOS/Linux)
+│   ├── start-ai-server.sh        # Backend + Cloudflare Tunnel (tuỳ chọn, link công khai)
+│   ├── start_tunnel.sh           # Chỉ mở Cloudflare Tunnel
 │   └── run_tests.sh              # Chạy bộ kiểm thử tự động
 ├── package.json                  # Scripts quản lý toàn bộ workspace
 ├── README.md                     # Tài liệu hướng dẫn sử dụng
@@ -85,9 +86,9 @@ exam-monitor/
 
 ## 💻 Yêu Cầu Hệ Thống
 
-- **Hệ điều hành**: macOS, Ubuntu/Linux, hoặc Windows (WSL2).
+- **Hệ điều hành**: Windows, macOS hoặc Linux. Nên có GPU NVIDIA (CUDA) để chạy thời gian thực; CPU vẫn chạy nhưng chậm.
 - **Node.js**: Phiên bản 18.x trở lên (`node -v`).
-- **Python**: Phiên bản 3.10 hoặc 3.11 (`python3 -v`).
+- **Python**: 3.10 – 3.13 (`python --version`).
 - **Git**: Đã cài đặt và kết nối SSH hoặc HTTPS với GitHub.
 
 ---
@@ -120,55 +121,44 @@ exam-monitor/
 
 ---
 
-### Cách 1: Khởi động nhanh (Khuyên dùng)
+### Cách 1: Một máy chủ (khuyên dùng, cũng là cách demo)
 
-Tại thư mục gốc của dự án (`exam-monitor`):
+Backend phục vụ luôn giao diện đã build, chỉ cần một tiến trình:
 
-1. **Bật AI Backend & Đường hầm Cloudflare Tunnel:**
-   ```bash
-   npm run ai-server
-   ```
-   *Lệnh này sẽ tự động chạy FastAPI trên cổng `8000` và hiển thị link Cloudflare công khai (dạng `https://xxxx.trycloudflare.com`).*
+```bash
+cd frontend && npm run build && cd ..
+cd backend
+.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-2. **Mở một Terminal mới, khởi động Frontend:**
-   ```bash
-   npm run dev
-   ```
-   *Truy cập trình duyệt tại: **`http://localhost:5173`***.
+Mở **http://localhost:8000**, bấm **Tải video** hoặc **Bật camera**. Kiểm tra máy chủ: `http://localhost:8000/health`,
+`http://localhost:8000/ready` (đã có model pose chưa), tài liệu API: `http://localhost:8000/docs`.
+Trên macOS/Linux có thể dùng `bash scripts/start_backend.sh` (tự tạo venv, cài thư viện, tải model).
 
 ---
 
-### Cách 2: Khởi động thủ công từng phần
+### Cách 2: Chế độ phát triển (sửa giao diện)
 
-#### 1. Khởi động AI Backend:
 ```bash
-cd backend
-source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-- Kiểm tra tài liệu Swagger API: `http://localhost:8000/docs`
-- Kiểm tra trạng thái: `http://localhost:8000/api/v1/health`
-
-#### 2. Khởi động Frontend:
-```bash
-cd frontend
+# Terminal 1 — backend, tự nạp lại khi sửa code Python
+cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Terminal 2 — giao diện có hot-reload
 npm run dev
 ```
 
+Mở **http://localhost:5173** (giao diện tự kết nối tới backend ở cổng 8000).
+
 ---
 
-### 📱 Cách kết nối từ xa trên Điện thoại (Cloudflare Tunnel)
+### 📱 Truy cập từ máy khác / điện thoại
 
-1. Khi chạy `npm run ai-server`, terminal sẽ xuất hiện dòng:
-   ```text
-   Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):
-   https://random-subdomain.trycloudflare.com
-   ```
-2. Copy đường link `https://random-subdomain.trycloudflare.com`.
-3. Mở giao diện Web trên Điện thoại hoặc Laptop khác (qua link Vercel hoặc mạng LAN).
-4. Nhấn vào biểu tượng **⚙️ Cài Đặt** ở góc phải thanh Header.
-5. Dán link vừa copy vào ô **"Địa chỉ AI Backend"** $\rightarrow$ Nhấn **"Lưu Cấu Hình"**.
-6. Nhấn **"Bật Camera"** hoặc **"Tải Video Lên"** để bắt đầu giám sát!
+- **Cùng mạng LAN, dùng video**: mở `http://<IP-máy-chủ>:8000` trên máy khác.
+- **Camera trên điện thoại / máy Mac** chỉ bật được qua **HTTPS**: chạy uvicorn với chứng chỉ
+  (`--ssl-keyfile key.pem --ssl-certfile cert.pem`, chứng chỉ tự ký thì trình duyệt sẽ cảnh báo, bấm tiếp tục).
+- **Link công khai (tuỳ chọn)**: `npm run ai-server` mở Cloudflare Quick Tunnel dạng `https://xxxx.trycloudflare.com`;
+  ai có link đều vào được, nên chỉ bật khi demo và đổi `DEMO_ACCESS_CODE` trong `backend/.env`.
+  Dán link vào **⚙️ Cài Đặt → Địa chỉ AI Backend** nếu giao diện chạy ở nơi khác (vd Vercel).
 
 ---
 
@@ -183,7 +173,7 @@ Nếu không có webcam hoặc muốn thử nghiệm các tình huống quay có
 
 ## 🎯 Quy Chuẩn AI & Phát Hiện Hành Vi
 
-Mỗi khung hình (960 px, ~39 ms ở chế độ hiệu năng trên RTX 4060) đi qua 3 model: **YOLO11-Pose** tìm thí sinh + 17 điểm khớp,
+Mỗi khung hình (960 px, ~35 ms ở chế độ hiệu năng trên RTX 4060) đi qua 3 model: **YOLO11-Pose** tìm thí sinh + 17 điểm khớp,
 **turn_cls** (nhóm train) đoán quay đầu trên ảnh cắt từng người, **YOLO11m** tìm điện thoại. Luật hành vi gộp lại:
 
 - **Lấy mốc (Calibration)**: 20 mẫu đầu của mỗi thí sinh, lấy **trung vị** vị trí mũi, góc đầu và P(turn) — một cú liếc
@@ -212,9 +202,10 @@ Mỗi khung hình (960 px, ~39 ms ở chế độ hiệu năng trên RTX 4060) �
   "Nhật Ký Sự Kiện" hoặc API `GET /api/sessions/{session_id}/evidence/{event_id}` (`.../status` để biết đã ghi xong chưa).
 - **Âm báo (FT-11)**: kêu 2 tiếng bíp khi bảng "Nhật Ký Sự Kiện" có sự kiện nghi vấn mới (không kêu lặp cho thí sinh
   đang có sự kiện chờ xử lý). Nút **Âm báo / Tắt tiếng** ở đầu bảng, trình duyệt nhớ lựa chọn.
-- **Chế độ hiệu năng (MS-02)**: pose + theo dõi chạy mọi khung; turn_cls và detector điện thoại mỗi model chạy 1/2 số khung,
-  so le nhau, khung còn lại dùng kết quả gần nhất (`AUX_MODEL_EVERY_N=2`, đặt `1` để chạy mọi khung).
-  Lớp đông người trên RTX 4060, ảnh 960 px: 53 → 39 ms/khung (18.8 → **25.4 FPS**), kết quả đánh giá không giảm.
+- **Chế độ hiệu năng (MS-02)**: pose + theo dõi chạy mọi khung; turn_cls và detector điện thoại mỗi model chạy 1/3 số khung,
+  so le nhau, khung còn lại dùng kết quả gần nhất (`AUX_MODEL_EVERY_N=3`, đặt `1` để chạy mọi khung).
+  Lớp đông người trên RTX 4060, ảnh 960 px: 53 → 35 ms/khung (18.8 → **~28,5 FPS**), kết quả đánh giá không giảm.
+  Đo lại: `python tools/benchmark.py --video <video>`.
 
 Kết quả trên tập test DS-03 (sinh viên 5–8, không dùng để chỉnh): nhìn bài bạn 4/4, điện thoại 6/8,
 **báo nhầm người bình thường 0/16**. Chi tiết: [`training/README.md`](training/README.md).
