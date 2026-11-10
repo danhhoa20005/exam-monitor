@@ -5,10 +5,8 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 cd "$DIR/backend"
 
-if [ -f "$DIR/.venv/bin/pytest" ]; then
-    PYTEST="$DIR/.venv/bin/pytest"
-elif [ -f "/Users/MAC/miniconda3/bin/pytest" ]; then
-    PYTEST="/Users/MAC/miniconda3/bin/pytest"
+if [ -f "$DIR/backend/.venv/bin/pytest" ]; then
+    PYTEST="$DIR/backend/.venv/bin/pytest"
 elif command -v pytest &> /dev/null; then
     PYTEST="pytest"
 else

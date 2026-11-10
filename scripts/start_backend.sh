@@ -6,9 +6,7 @@ set -e
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$BASE_DIR/backend"
 
-# Always use the project virtualenv when it exists. Using the system Python
-# silently caused YOLO/MediaPipe to be unavailable even though the model file
-# was present.
+# Always use the project virtualenv: the system Python usually lacks ultralytics/torch.
 PYTHON_BIN="$BASE_DIR/backend/.venv/bin/python3"
 if [ ! -x "$PYTHON_BIN" ]; then
     echo "[*] Creating backend virtualenv..."
@@ -23,23 +21,14 @@ if [ ! -x "$UVICORN_BIN" ]; then
 fi
 
 echo "======================================================="
-echo "   Khởi Động VisionGuard AI Backend (YOLOv8 + MediaPipe)   "
+echo "   Khởi động AI Backend (YOLO11-Pose + turn_cls + YOLO11m)"
 echo "======================================================="
 
-# Kiểm tra weights model
-if [ ! -f "models/best.pt" ]; then
-    echo "[!] Không tìm thấy models/best.pt. Đang copy từ thư mục model/..."
-    if [ -f "../model/extracted/weights/best.pt" ]; then
-        cp ../model/extracted/weights/best.pt models/best.pt
-        echo "[OK] Đã copy weights/best.pt vào backend/models/best.pt"
-    fi
-fi
-
-# Tải model MediaPipe Pose nếu chưa có
+# Tải yolo11l-pose.pt và yolo11m.pt nếu chưa có (turn_cls.pt đã có sẵn trong repo)
 "$PYTHON_BIN" models/download_models.py
 
 echo "[*] Đang khởi động FastAPI Uvicorn Server tại http://0.0.0.0:8000..."
-echo "[*] WebSocket endpoint: ws://0.0.0.0:8000/ws/sessions/session-01"
+echo "[*] Mở giao diện: http://localhost:8000 (cần build frontend trước: npm run build)"
 echo "======================================================="
 
 "$UVICORN_BIN" app.main:app --host 0.0.0.0 --port 8000 --reload

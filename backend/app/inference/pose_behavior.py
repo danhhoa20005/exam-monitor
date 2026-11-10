@@ -29,7 +29,6 @@ from typing import Dict, List, Optional, Tuple, Any
 from app.config import settings
 from app.protocol import TrackStatus, BehaviorReason, TrackResult
 from app.inference.pnp_head_pose import compute_delta_yaw
-from app.inference.pose_behavior_v2 import SuspicionScorer, TemporalSmoother
 
 class CandidateTrackState:
     """Per-track posture history, baseline calibration, and temporal warning accumulation."""
@@ -71,8 +70,6 @@ class CandidateTrackState:
         self.was_turning: bool = False
         self.shoulder_tilt: float = 0.0
         self.is_leaning: bool = False
-        self.scorer = SuspicionScorer()
-        self.smoother = TemporalSmoother(window_size=3, min_ratio=0.6)
         
         # Recent telemetry
         self.last_yaw: float = 0.0

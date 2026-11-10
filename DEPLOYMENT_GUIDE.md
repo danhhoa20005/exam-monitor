@@ -1,5 +1,5 @@
 # 🌐 CẨM NANG TRIỂN KHAI TOÀN DIỆN (DEPLOYMENT GUIDE)
-## Hệ Thống Giám Sát Tư Thế Phòng Thi — VisionGuard AI (YOLOv8 + MediaPipe)
+## Hệ Thống Giám Sát Tư Thế Phòng Thi — VisionGuard AI (YOLO11-Pose + turn_cls + YOLO11m)
 
 Tài liệu này hướng dẫn chi tiết từng bước (A đến Z) cách đưa toàn bộ hệ thống VisionGuard AI từ môi trường phát triển (Local) lên môi trường trực tuyến (Internet/Production) để người dùng, giám thị hoặc hội đồng đánh giá có thể truy cập qua điện thoại, máy tính bảng hoặc máy tính cá nhân ở bất cứ đâu.
 
@@ -22,8 +22,8 @@ flowchart LR
 
     subgraph BackendAI["Máy Chủ AI (Render / HF Spaces / VPS / Mac Local)"]
         FastAPI["FastAPI WebSocket & REST"]
-        YOLO["YOLOv8m (best.pt)"]
-        MediaPipe["MediaPipe Pose Landmarker"]
+        YOLO["YOLO11l-Pose (người + 17 điểm khớp)"]
+        Models["turn_cls (nhóm train) + YOLO11m (điện thoại)"]
         ByteTrack["ByteTrack Core"]
     end
 
@@ -32,13 +32,13 @@ flowchart LR
     UI -- "1. POST /api/sessions (Tạo phiên & lấy vé WS)" --> FastAPI
     UI <-- "2. WebSocket wss://.../ws/sessions/id" --> FastAPI
     FastAPI --> YOLO
-    FastAPI --> MediaPipe
+    FastAPI --> Models
     FastAPI --> ByteTrack
 ```
 
 ### Tại sao lại chia tách như trên?
 1. **Frontend (React/Vite)**: Hoàn toàn là file tĩnh, cần **bắt buộc chạy trên giao thức HTTPS** để trình duyệt (Chrome, Safari, Edge) cấp quyền truy cập Camera/Webcam. Triển khai lên **Vercel** hoặc **Firebase Hosting** chỉ mất 1 phút và **hoàn toàn miễn phí**.
-2. **Backend AI (Python FastAPI + YOLOv8 + MediaPipe)**: Đây là bộ não tính toán thị giác máy tính (Computer Vision) nặng, nhận luồng ảnh JPEG 5–10 FPS và giải ma trận 3D SolvePnP liên tục qua WebSocket dài hạn (Persistent Connection). Không thể chạy trên Serverless (như Vercel Serverless hay AWS Lambda thông thường). Cần chạy trên Server/Container (Render, VPS, Hugging Face Spaces) hoặc chạy trực tiếp trên máy Mac kết nối qua Secure Tunnel.
+2. **Backend AI (Python FastAPI + YOLO11)**: Đây là bộ não tính toán thị giác máy tính (Computer Vision) nặng, nhận luồng ảnh JPEG 5–10 FPS và chạy 3 model + bộ luật hành vi liên tục qua WebSocket dài hạn (Persistent Connection). Không thể chạy trên Serverless (như Vercel Serverless hay AWS Lambda thông thường). Cần chạy trên Server/Container (Render, VPS, Hugging Face Spaces) hoặc chạy trực tiếp trên máy Mac kết nối qua Secure Tunnel.
 
 ---
 

@@ -1,33 +1,17 @@
-# Thư mục chứa trọng số mô hình AI (Models Directory)
+# Trọng số mô hình (`backend/models/`)
 
-## 1. Trọng số YOLOv8s đã huấn luyện (`best.pt`)
+| File | Vai trò | Nguồn |
+|---|---|---|
+| `yolo11l-pose.pt` | Tìm thí sinh + 17 điểm khớp | Ultralytics (COCO), **tự tải** lần chạy đầu |
+| `yolo11m.pt` | Phát hiện điện thoại (lớp `cell phone`) | Ultralytics (COCO), **tự tải** lần chạy đầu |
+| `turn_cls.pt` | Phân loại quay đầu trên ảnh cắt từng thí sinh | **Nhóm huấn luyện** (`training/train_turn_cls.py`), có sẵn trong repo |
 
-Sao chép file model `best.pt` của bạn vào thư mục này:
-```text
-backend/models/best.pt
-```
+Tải trước (vd máy demo không có Internet lúc thuyết trình):
 
-### Checksum SHA-256 tiêu chuẩn theo đặc tả:
-```text
-c1ea0a60e07a33c4bd01263e261e644cd74cf2520d164acf9512f5828512bbe1
-```
-
-Kiểm tra mã băm SHA-256 trên macOS:
 ```bash
-shasum -a 256 backend/models/best.pt
+cd backend
+python models/download_models.py
 ```
 
-Hoặc chạy script tự động kiểm tra:
-```bash
-python3 backend/models/download_models.py
-```
-
----
-
-## 2. Mô hình MediaPipe Tasks Pose Landmarker
-
-File `pose_landmarker_lite.task` sẽ được tự động tải về khi chạy:
-```bash
-python3 backend/models/download_models.py
-```
-Hoặc khi khởi động server FastAPI.
+Đổi hoặc tắt model bằng biến môi trường: `YOLO_POSE_MODEL`, `PHONE_MODEL`, `TURN_CLS_MODEL`
+(`none.pt` = tắt). Các file `.pt` khác trong thư mục này bị `.gitignore` bỏ qua, trừ `turn_cls.pt`.

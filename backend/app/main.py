@@ -43,14 +43,13 @@ from app.auth import (
     get_current_user
 )
 from app.sessions import session_manager
-from models.download_models import verify_yolo_model, download_pose_model
+from models.download_models import ensure_models
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Check weights and models
+    # Startup: make sure the pretrained weights are on disk (downloaded once, needs Internet)
     print(f"=== {settings.APP_NAME} v{settings.APP_VERSION} Starting ===")
-    download_pose_model()
-    verify_yolo_model()
+    ensure_models()
     yield
     # Shutdown: Clean up any active sessions
     print("=== Shutting down VisionGuard AI Backend ===")
@@ -81,12 +80,8 @@ def get_health():
 @app.get("/ready", response_model=ReadyResponse)
 def get_ready():
     """Readiness probe: checks YOLO11-Pose model presence."""
-    custom_exists = os.path.exists(settings.YOLO_MODEL_PATH)
     pose_model_exists = os.path.exists(settings.YOLO_POSE_MODEL_PATH)
-    yolo_exists = custom_exists or pose_model_exists
-    pose_exists = os.path.exists(settings.POSE_MODEL_PATH) or pose_model_exists
-    
-    active_path = str(settings.YOLO_POSE_MODEL_PATH if pose_model_exists else settings.YOLO_MODEL_PATH)
+    active_path = str(settings.YOLO_POSE_MODEL_PATH)
     sha256 = None
     if os.path.exists(active_path):
         try:
@@ -96,9 +91,9 @@ def get_ready():
             pass
 
     return ReadyResponse(
-        status="ready" if (yolo_exists or True) else "not_ready",
-        model_loaded=yolo_exists,
-        pose_loaded=pose_exists,
+        status="ready" if pose_model_exists else "not_ready",
+        model_loaded=pose_model_exists,
+        pose_loaded=pose_model_exists,
         model_sha256=sha256,
         version=settings.APP_VERSION,
         weights_path=active_path

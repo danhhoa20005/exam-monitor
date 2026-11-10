@@ -12,7 +12,7 @@ echo "================================================================"
 pkill -f "uvicorn app.main:app" 2>/dev/null || true
 
 # Khởi chạy AI Backend ở chế độ ngầm (Background)
-echo "1️⃣ Đang khởi động AI Backend (YOLOv8 & MediaPipe) trên port 8000..."
+echo "1️⃣ Đang khởi động AI Backend (YOLO11-Pose + turn_cls + YOLO11m) trên port 8000..."
 cd backend
 
 PYTHON_BIN="$BASE_DIR/backend/.venv/bin/python3"
@@ -33,6 +33,7 @@ echo "✅ AI Backend đã khởi động thành công (PID: $BACKEND_PID)."
 echo ""
 echo "2️⃣ Đang kết nối Cloudflare Tunnel ra Internet..."
 echo "----------------------------------------------------------------"
+echo "⚠️  Ai có link đều truy cập được: chỉ bật khi demo, đặt DEMO_ACCESS_CODE riêng trong backend/.env."
 echo "📌 HƯỚNG DẪN DÀNH CHO BẠN:"
 echo "1. Đợi đường link dạng: https://xxxx.trycloudflare.com hiển thị bên dưới."
 echo "2. Copy đường link đó."

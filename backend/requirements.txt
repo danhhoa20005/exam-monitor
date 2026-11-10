@@ -8,12 +8,7 @@ numpy>=1.26.0
 opencv-python-headless>=4.8.0
 ultralytics>=8.4.0
 lapx>=0.5.2
-mediapipe>=0.10.14
 pytest>=8.0.0
 httpx>=0.27.0
 aiofiles>=24.1.0
 
-# Tools & Visual Analytics
-pandas>=2.2.0
-matplotlib>=3.8.0
-streamlit>=1.38.0

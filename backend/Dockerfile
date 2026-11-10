@@ -1,7 +1,7 @@
 # VisionGuard AI Backend Dockerfile
 FROM python:3.11-slim
 
-# Install system dependencies for OpenCV and MediaPipe
+# Install system dependencies for OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy backend application source
 COPY . .
 
-# Download MediaPipe task model if not present
+# Download yolo11l-pose.pt and yolo11m.pt into the image (turn_cls.pt is in the repo)
 RUN python models/download_models.py
 
 EXPOSE 8000

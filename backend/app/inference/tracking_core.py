@@ -1,5 +1,5 @@
 """
-Tracking Core Module for YOLOv8 and ByteTrack Integration.
+Tracking core: YOLO11-Pose + ByteTrack, turn_cls and phone detector, seats, evidence clips.
 Processes incoming JPEG frames, performs object detection, tracks candidates,
 and coordinates posture behavior analysis.
 """
@@ -54,7 +54,6 @@ class SessionInferencePipeline:
                                          post_s=settings.EVIDENCE_POST_S, max_clips=settings.EVIDENCE_MAX_CLIPS)
         self.yolo_model = None
         self.is_pose_model = False
-        self.is_custom_student_model = False
         self.source_id: Optional[str] = None
         self._reset_aux_cache()
         self._init_yolo()
@@ -84,12 +83,8 @@ class SessionInferencePipeline:
         self._phone_boxes_cache = None
 
     def _init_yolo(self):
-        """Initialize YOLO11-Pose detector (from dyingangell/Cheating-detection-YOLO) or custom weights."""
+        """Load YOLO11-Pose (person boxes + 17 keypoints); downloaded on first use."""
         pose_model_path = str(settings.YOLO_POSE_MODEL_PATH)
-        custom_model_path = str(settings.YOLO_MODEL_PATH)
-        fallback_path = str(settings.FALLBACK_YOLO_PATH)
-
-        # Behaviour analysis needs keypoints, so the pose model must win over any detect-only weights.
         if not os.path.exists(pose_model_path):
             print(f"[INFO] Downloading YOLO11-Pose weights to {pose_model_path}...")
             try:
@@ -98,21 +93,10 @@ class SessionInferencePipeline:
             except Exception as dl_err:
                 print(f"[WARN] Could not auto-download pose model: {dl_err}")
 
-        target_path = None
-        if os.path.exists(pose_model_path):
-            target_path = pose_model_path
-            self.is_pose_model = True
-            print(f"[OK] Loading YOLO11-Pose model: {pose_model_path}")
-        elif os.path.exists(custom_model_path):
-            target_path = custom_model_path
-            self.is_custom_student_model = True
-            print(f"[WARN] Pose model unavailable, using detect-only weights {custom_model_path}: "
-                  f"every track will be POSE_UNAVAILABLE (no behaviour analysis)")
-        elif os.path.exists(fallback_path):
-            target_path = fallback_path
-            print(f"[WARN] Pose model unavailable, using detect-only fallback {fallback_path}")
-
-        if target_path:
+        target_path = pose_model_path if os.path.exists(pose_model_path) else None
+        if target_path is None:
+            print(f"[ERROR] YOLO11-Pose model missing and could not be downloaded: {pose_model_path}")
+        else:
             try:
                 from ultralytics import YOLO
                 self.yolo_model = YOLO(target_path)
