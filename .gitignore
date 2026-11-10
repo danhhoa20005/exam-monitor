@@ -72,3 +72,6 @@ backend/*.log
 **/.venv/
 backend/.venv
 frontend/node_modules
+
+# Báo cáo, slide, phân công: lưu ngoài repo (thư mục tài liệu môn học)
+docs/

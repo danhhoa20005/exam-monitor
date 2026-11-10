@@ -71,7 +71,6 @@ exam-monitor/
 ├── tools/
 │   ├── benchmark.py              # Đo tốc độ pipeline (ms/khung, FPS) trên một video
 │   └── render_demo.py            # Render video demo từ pipeline thật
-├── docs/                         # Báo cáo, kế hoạch, kịch bản demo, hướng dẫn quay video
 ├── scripts/
 │   ├── start_backend.sh          # Khởi động backend (macOS/Linux)
 │   ├── start-ai-server.sh        # Backend + Cloudflare Tunnel (tuỳ chọn, link công khai)
