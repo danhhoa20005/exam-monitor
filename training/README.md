@@ -15,6 +15,9 @@ Thư mục này chứa toàn bộ quy trình dữ liệu → train → đánh gi
 Các model nhóm train nhưng không đưa vào hệ thống (kết quả vẫn lưu để so sánh):
 `student_v3` (phát hiện "student", ảnh 256 px — mAP bị thổi phồng do rò rỉ dữ liệu) và
 `behavior_v1` (phát hiện BowHead/TurnHead trên cả khung hình — mAP50 0.38, kém trên video phòng thi).
+Trước đó nhóm còn train `student_v1` (YOLOv8m phát hiện "student", 60 epoch trên Colab, mAP50 0.974 / mAP50-95 0.768,
+là `best.pt` của phiên bản đầu dự án): biểu đồ, ma trận nhầm lẫn, `results.csv` và `args.yaml` lưu ở
+[`../model/extracted/`](../model/extracted/); file trọng số (100 MB) không đưa lên git vì hệ thống không còn dùng.
 
 ## 2. Cài đặt
 
