@@ -6,7 +6,7 @@ import { MonitoringEvent } from '../types/monitoring';
 export interface StudentStat {
   label: string;          // "Ghế 05" (seat) or "ID 12" when no seat is known
   maxScore: number;       // highest risk score seen this session
-  reviewFrames: number;   // frames spent in REVIEW
+  reviewMs: number;       // time spent in REVIEW
   reasons: string[];
   firstSeenMs: number;
   lastSeenMs: number;
@@ -40,13 +40,13 @@ const reasonsVi = (rs: string[]) => rs.map(r => REASON_VI[r] || r).join(', ') ||
 const time = (ms: number) => new Date(ms).toLocaleTimeString('vi-VN');
 
 export function buildSessionReportHtml({ sessionId, startedAtMs, sensitivity, students, events }: ReportInput): string {
-  const ranked = [...students].sort((a, b) => b.maxScore - a.maxScore || b.reviewFrames - a.reviewFrames);
+  const ranked = [...students].sort((a, b) => b.maxScore - a.maxScore || b.reviewMs - a.reviewMs);
   const confirmed = events.filter(e => e.review_status === 'CONFIRMED').length;
   const pending = events.filter(e => e.review_status === 'PENDING' || e.review_status === 'NEEDS_REVIEW').length;
   const studentRows = ranked.map((s, i) => `
     <tr class="${s.maxScore >= 80 ? 'hi' : ''}">
       <td>${i + 1}</td><td>${esc(s.label)}</td><td class="num">${s.maxScore}</td>
-      <td class="num">${(s.reviewFrames / 10).toFixed(1)}</td><td>${esc(reasonsVi(s.reasons))}</td>
+      <td class="num">${(s.reviewMs / 1000).toFixed(1)}</td><td>${esc(reasonsVi(s.reasons))}</td>
     </tr>`).join('');
   const eventRows = [...events].sort((a, b) => a.start_ms - b.start_ms).map((e, i) => `
     <tr>

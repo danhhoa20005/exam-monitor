@@ -195,10 +195,11 @@ export function useMonitoringSocket(isCameraStreaming: boolean) {
             for (const t of data.tracks || []) {
               const label = t.seat_id ? `Ghế ${String(t.seat_id).padStart(2, '0')}` : `ID ${String(t.track_id).padStart(2, '0')}`;
               const st = studentStatsRef.current.get(label)
-                || { label, maxScore: 0, reviewFrames: 0, reasons: [], firstSeenMs: nowMs, lastSeenMs: nowMs };
+                || { label, maxScore: 0, reviewMs: 0, reasons: [], firstSeenMs: nowMs, lastSeenMs: nowMs };
               st.maxScore = Math.max(st.maxScore, t.suspicion_score || 0);
               if (t.status === 'REVIEW') {
-                st.reviewFrames += 1;
+                // real time since this student's previous result, whatever the FPS; a gap (left the frame) counts ≤ 1 s
+                st.reviewMs += Math.min(1000, Math.max(0, nowMs - st.lastSeenMs));
                 t.reasons.forEach(r => { if (!st.reasons.includes(r)) st.reasons.push(r); });
               }
               st.lastSeenMs = nowMs;
