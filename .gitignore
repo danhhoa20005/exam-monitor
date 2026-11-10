@@ -59,6 +59,11 @@ training/workspace/
 # Evidence clips recorded at runtime (FT-06)
 backend/evidence/
 model/
+
+# Secrets: never commit account recovery codes or keys
+*recovery-codes*
+*.pem
+*.key
 *.log
 backend/*.log
 
