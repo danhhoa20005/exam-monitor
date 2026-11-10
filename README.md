@@ -183,7 +183,7 @@ Nếu không có webcam hoặc muốn thử nghiệm các tình huống quay có
 
 ## 🎯 Quy Chuẩn AI & Phát Hiện Hành Vi
 
-Mỗi khung hình (960 px, ~64 ms trên RTX 4060) đi qua 3 model: **YOLO11-Pose** tìm thí sinh + 17 điểm khớp,
+Mỗi khung hình (960 px, ~39 ms ở chế độ hiệu năng trên RTX 4060) đi qua 3 model: **YOLO11-Pose** tìm thí sinh + 17 điểm khớp,
 **turn_cls** (nhóm train) đoán quay đầu trên ảnh cắt từng người, **YOLO11m** tìm điện thoại. Luật hành vi gộp lại:
 
 - **Lấy mốc (Calibration)**: 20 mẫu đầu của mỗi thí sinh, lấy **trung vị** vị trí mũi, góc đầu và P(turn) — một cú liếc

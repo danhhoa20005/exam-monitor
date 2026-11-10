@@ -125,6 +125,11 @@ def main():
         with open(args.labels, encoding="utf-8") as fh:
             labels = {row["filename"]: {"left": row["left"], "right": row["right"]} for row in csv.DictReader(fh)}
     files = sorted(f for f in os.listdir(args.videos) if f.lower().endswith((".mov", ".mp4", ".avi", ".mkv")))
+    if labels:
+        missing = sorted(set(labels) - set(files))
+        if missing:
+            print(f"[WARN] Không tìm thấy video có trong file nhãn: {', '.join(missing)}")
+        files = [f for f in files if f in labels]   # chỉ chấm video đã gán nhãn
     if args.split != "all":
         files = [f for f in files if ds03_split(f) == args.split]
 
@@ -136,7 +141,7 @@ def main():
         people = labels.get(f) or ds03_people(f)
         for mode in modes:
             res = run_video(os.path.join(args.videos, f), mode == "ai", snap_dir)
-            rows.append({"file": f, "split": ds03_split(f), "left": people.get("left"), "right": people.get("right"),
+            rows.append({"file": f, "split": "nhom" if labels else ds03_split(f), "left": people.get("left"), "right": people.get("right"),
                          "mode": mode, **res})
             print(f"[{i}/{len(files)}] {f:20s} L={people.get('left'):14s} R={people.get('right'):14s} {mode:5s} "
                   f"flag L={res['left_flagged']} R={res['right_flagged']} max={res['max_score']:3d} {res['onsets']}")

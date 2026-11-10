@@ -100,7 +100,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track }) => {
         </div>
       )}
 
-      {/* Activity Classification Badges (from YOLOv8n + v2 Signals) */}
+      {/* Activity Classification Badges (from the pose rules + turn_cls) */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         {activity === 'hand_raised' && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40 animate-pulse">

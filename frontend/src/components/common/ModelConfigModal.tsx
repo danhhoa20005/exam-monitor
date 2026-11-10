@@ -103,10 +103,10 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-200 block">
-                      YOLO11-Pose (`yolo11l-pose.pt` / `best.pt`)
+                      YOLO11-Pose + turn_cls (nhóm train) + YOLO11m
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      Cheating Detection YOLO (Nose Offset, EMA Auto-Calibration, Hazard Meter)
+                      Quay đầu, điện thoại, cúi gập dưới bàn · mốc tư thế riêng từng thí sinh
                     </span>
                   </div>
                 </div>
@@ -261,7 +261,7 @@ export const ModelConfigModal: React.FC<ModelConfigModalProps> = ({
                     }}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-blue-500 focus:outline-none"
                   >
-                    <option value="640x480">640 × 480 (Tối ưu cho YOLOv8 di động)</option>
+                    <option value="640x480">640 × 480 (nhẹ, cho mạng yếu)</option>
                     <option value="960x540">960 × 540 (Cân bằng chi tiết)</option>
                     <option value="1280x720">1280 × 720 (HD 720p)</option>
                   </select>

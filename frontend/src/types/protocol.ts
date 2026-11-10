@@ -79,9 +79,9 @@ export interface ServerSessionInfoMessage {
   session_id: string;
   status: 'ACTIVE' | 'PAUSED' | 'CLOSED';
   model_info?: {
-    detector: string;     // e.g. 'YOLOv8n'
+    detector: string;     // e.g. 'YOLO11l-pose'
     tracker: string;      // e.g. 'ByteTrack'
-    pose_estimator: string; // e.g. 'MediaPipe BlazePose'
+    pose_estimator: string; // e.g. 'YOLO11 keypoints'
   };
 }
 

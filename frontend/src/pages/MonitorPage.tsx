@@ -63,7 +63,7 @@ export const MonitorPage: React.FC = () => {
     stopCamera();
   }, [stopCamera]);
 
-  // Frame Capture Interval (Streams camera frames directly to YOLOv8 & MediaPipe Backend)
+  // Frame Capture Interval (streams camera frames to the YOLO11 backend over WebSocket)
   useEffect(() => {
     if (!isStreaming) return;
 
@@ -224,7 +224,7 @@ export const MonitorPage: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <Info size={15} className="text-blue-400 shrink-0" />
-                  <span className="text-xs sm:text-sm">Quy Trình Giám Sát AI Realtime (Model `best.pt`):</span>
+                  <span className="text-xs sm:text-sm">Quy Trình Giám Sát AI Realtime (YOLO11-Pose + turn_cls + YOLO11m):</span>
                 </div>
                 <div className="p-1 text-slate-400 hover:text-slate-200">
                   {isGuideOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -246,7 +246,10 @@ export const MonitorPage: React.FC = () => {
                     Thí sinh ngồi thẳng hướng mặt về camera để AI lấy <strong className="text-slate-200">20 mẫu mốc tham chiếu</strong> ban đầu.
                   </li>
                   <li>
-                    Khi có hành vi quay đầu (<strong className="text-amber-300">&gt;35°</strong>) hoặc cúi người (<strong className="text-amber-300">&gt;15%</strong>) kéo dài <strong className="text-rose-300">≥ 1.5 giây</strong>, hệ thống phát nhãn <strong className="text-rose-400">"Nghi vấn — cần xem lại"</strong> để giám thị xử lý.
+                    Khi thí sinh quay đầu nhìn bài bạn (<strong className="text-amber-300">lệch mốc &gt;35°</strong>) kéo dài <strong className="text-rose-300">≥ 1.5 giây</strong>, cầm <strong className="text-amber-300">điện thoại</strong> ≥ 1 giây hoặc <strong className="text-amber-300">cúi gập dưới bàn</strong> ≥ 3 giây (ở độ nhạy 3), hệ thống phát nhãn <strong className="text-rose-400">"Nghi vấn — cần xem lại"</strong>, kêu bíp và lưu <strong className="text-sky-300">clip bằng chứng 10 giây</strong>.
+                  </li>
+                  <li>
+                    Giám thị xem clip, bấm <strong className="text-slate-200">Xác nhận / Xem xét / Bỏ qua</strong>; cuối ca bấm <strong className="text-amber-300">Biên bản</strong> để in hoặc lưu PDF.
                   </li>
                 </ul>
               </div>
